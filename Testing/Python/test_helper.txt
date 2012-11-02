@@ -1,0 +1,136 @@
+Doctests for ./QALib/derived_images/helper.py
+=============================================
+
+Using ``postgresDatabase object``
+---------------------------------
+*** define test globals ***
+    >>> import copy, os
+    >>> from QALib.derived_images.helper import *; \
+    ... testDB = postgresDatabase(host='psych-db.psychiatry.uiowa.edu', pguser='test', password='test', login='user1')
+
+*** default parameters ***
+    >>> db = postgresDatabase()
+    >>> assert db != None
+    >>> assert db.host == 'localhost'
+    >>> assert db.port == 5432
+    >>> assert db.pguser == 'postgres'
+    >>> assert db.pguser == db.database
+    >>> assert db.pguser == db.password
+    >>> assert db.login == os.environ['USER']
+    >>> assert db.arraySize == 1
+
+*** positional args ***
+    >>> db = postgresDatabase('my.test.host', 0, 'myuser', None, 'pass', 'login', 15)
+    >>> assert db != None
+    >>> assert db.host == 'my.test.host', "Value is: %s" % db.host
+    >>> assert db.port == 0
+    >>> assert db.pguser == 'myuser', "Value is: %s" % db.pguser
+    >>> assert db.pguser == db.database
+    >>> assert db.password == 'pass'
+    >>> assert db.login == 'login', "Value is: %s" % db.login
+    >>> assert db.arraySize == 15
+
+*** mix of args and defaults ***
+    >>> db = postgresDatabase('my.test.host1', 'login1', port=15, database='postgres', arraySize=15, password='pass', pguser='user1')
+    >>> assert db != None
+    >>> assert db.host == 'my.test.host1', "Value is: %s" % db.host
+    >>> assert db.port == 15
+    >>> assert db.pguser == 'user1', "Value is: %s" % db.pguser
+    >>> assert db.database == 'postgres'
+    >>> assert db.password == 'pass'
+    >>> assert db.login == 'login1', "Value is: %s" % db.login
+    >>> assert db.arraySize == 15
+
+*** keyword args ***
+    >>> db = postgresDatabase(host='my.test.host2', arraySize=15, login='login2', password='pass', database=None, pguser='user2', port=15)
+    >>> assert db != None
+    >>> assert db.host == 'my.test.host2', "Value is: %s" % db.host
+    >>> assert db.port == 15
+    >>> assert db.pguser == 'user2', "Value is: %s" % db.pguser
+    >>> assert db.pguser == db.database
+    >>> assert db.password == 'pass'
+    >>> assert db.login == 'login2', "Value is: %s" % db.login
+    >>> assert db.arraySize == 15
+
+Test ``openDatabase`` method
+----------------------------
+    >>> db1 = copy.deepcopy(testDB)
+
+*** open ***
+    >>> import psycopg2._psycopg as sql; \
+    ... db1.openDatabase()
+
+*** connection ***
+    >>> isinstance(db1.connection, sql.connection)
+    True
+
+*** cursor ***
+    >>> isinstance(db1.cursor, sql.cursor)
+    True
+
+Test  ``closeDatabase`` method
+------------------------------
+*** close ***
+    >>> db1.closeDatabase()
+
+Test ``getReviewerID`` method
+-----------------------------
+    >>> db2 = copy.deepcopy(testDB)
+
+*** existing reviewer ***
+    >>> db2.getReviewerID(); \
+    ... assert db2.reviewer_id == 1, "Value is: %s" % db2.reviewer_id
+
+*** non-existant reviewer ***
+    >>> db2.login = 'user0'; \
+    ... db2.getReviewerID()
+    Traceback (most recent call last):
+    ...
+    ValueError: Reviewer user0 is not registered in the database test!
+
+Test ``getRecords`` method
+--------------------------
+    >>> db3 = copy.deepcopy(testDB)
+
+*** without open database ***
+    >>> db3.getRecords(imageTable='derived_images')
+    Traceback (most recent call last):
+    ...
+    AssertionError: The database is not open! Run postgresDatabase.openDatabase()
+
+*** with open database ***
+    >>> db3.openDatabase(); \
+    ... db3.getRecords(imageTable='derived_images', status='U'); \
+    ... assert len(db3.rows) == db3.arraySize, "Value is: %d" % len(db.rows)
+
+*** no table specified ***
+    >>> db3.getRecords()
+    Traceback (most recent call last):
+    ...
+    AssertionError: The database table is not specified: value is "None"
+
+*** mispelled table ***
+    >>> db3.getRecords(imageTable='derive_image')
+    Traceback (most recent call last):
+    ...
+    ValueError: The table 'derive_image' does not exist in the database!
+
+*** bad status ***
+    >>> db3.getRecords(imageTable='derived_images', status='P')
+    Traceback (most recent call last):
+    ...
+    ValueError: The status 'P' is not a valid one
+
+Test ``lockAndReadRecords`` method
+----------------------------------
+    >>> db4 = copy.deepcopy(testDB)
+
+*** no table specified ***
+    >>> db4.lockAndReadRecords()
+    Traceback (most recent call last):
+    ...
+    AssertionError: The database table is not specified: value is "None"
+
+    >>> assert db4.imageTable is None
+    >>> db4.lockAndReadRecords(imageTable='derived_images')
+
