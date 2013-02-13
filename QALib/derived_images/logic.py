@@ -21,6 +21,7 @@ class DerivedImageQALogic(object):
     """ Logic class to be used 'under the hood' of the evaluator """
     def __init__(self, widget, test=False):
         self.widget = widget
+        self.logging = self.widget.logging
         self.regions = self.widget.regions
         self.images = self.widget.images
         self.qaValueMap = {'good':'1', 'bad':'0', 'follow up':'-1'}
@@ -36,7 +37,7 @@ class DerivedImageQALogic(object):
         self.sessionFiles = {}
         self.testing = test
         if self.testing:
-            print "Testing logic is ON"
+            self.logging.info("TESTING is ON")
         self.setup()
 
 
@@ -48,9 +49,12 @@ class DerivedImageQALogic(object):
         if self.testing:
             databaseConfig = os.path.join(__slicer_module__, 'testdatabase.cfg')
             self.user_id = 'user1'
+            self.logging.info("TESTING: Setting database user to %s", self.user_id)
         else:
             databaseConfig = os.path.join(__slicer_module__, 'autoworkup.cfg')
+            self.logging.info("Setting database configuration to %s", databaseConfig)
             self.user_id = os.environ['USER']
+            self.logging.info("logic.py: Setting database user to %s", self.user_id)
         for configFile in [databaseConfig, logicConfig]:
             if not os.path.exists(configFile):
                 raise IOError("File {0} not found!".format(configFile))
@@ -69,12 +73,13 @@ class DerivedImageQALogic(object):
                                              self.user_id, self.batchSize)
         ### END HACK
         self.config.read(logicConfig)
+        self.logging.info("logic.py: Reading logic configuration from %s", logicConfig)
 
 
     def selectRegion(self, buttonName):
         """ Load the outline of the selected region into the scene
         """
-        print "selectRegion()"
+        self.logging.debug("call")
         nodeName = self.constructLabelNodeName(buttonName)
         if nodeName == '':
             return -1
@@ -94,7 +99,7 @@ class DerivedImageQALogic(object):
 
     def constructLabelNodeName(self, buttonName):
         """ Create the names for the volume and label nodes """
-        print "constructLabelNodeName()"
+        self.logging.debug("call")
         if not self.currentSession is None:
             nodeName = '_'.join([self.currentSession, buttonName])
             return nodeName
@@ -102,17 +107,18 @@ class DerivedImageQALogic(object):
 
 
     def onCancelButtonClicked(self):
+        self.logging.debug("call")
         # TODO: Populate this function
         #   onNextButtonClicked WITHOUT the write to database
-        print "Cancelled!"
+        self.logging.info("Cancel button clicked!")
 
 
     def writeToDatabase(self, evaluations):
-        print "writeToDatabase()"
+        self.logging.debug("call")
         if self.testing:
             recordID = str(self.batchRows[self.count]['record_id'])
         else:
-           recordID = self.batchRows[self.count][0]
+            recordID = self.batchRows[self.count][0]
         values = (recordID,) + evaluations
         try:
             if self.testing:
@@ -122,12 +128,12 @@ class DerivedImageQALogic(object):
                 self.database.unlockRecord('R', recordID)
         except:
             # TODO: Prompt user with popup
-            print "Error writing to database!"
+            self.logging.error("Error writing to database for record %d", recordID)
             raise
 
 
     def _getLabelFileNameFromRegion(self, regionName):
-        print "_getLabelFileNameFromRegion()"
+        self.logging.debug("call")
         try:
             region, side = regionName.split('_')
             fileName = '_'.join([side[0], region.capitalize(), 'seg.nii.gz'])
@@ -139,7 +145,7 @@ class DerivedImageQALogic(object):
 
     def onGetBatchFilesClicked(self):
         """ """
-        print "onGetBatchFilesClicked()"
+        self.logging.debug("call")
         self.count = 0
         self.batchRows = self.database.lockAndReadRecords()
         self.maxCount = len(self.batchRows)
@@ -156,7 +162,7 @@ class DerivedImageQALogic(object):
 
 
     def setCurrentSession(self):
-        print "setCurrentSession()"
+        self.logging.debug("call")
         self.currentSession = self.sessionFiles['session']
         self.widget.currentSession = self.currentSession
 
@@ -241,7 +247,7 @@ class DerivedImageQALogic(object):
         File not found for file: hippocampus_right
         Skipping session...
         """
-        print "constructFilePaths()"
+        self.logging.debug("call")
         row = self.batchRows[self.count]
         sessionFiles = {}
         # Due to a poor choice in our database creation, the 'location' column is the 6th, NOT the 2nd
@@ -267,16 +273,14 @@ class DerivedImageQALogic(object):
                         sessionFiles[image] = None
                         print "**** File not found: %s" % temp
             if sessionFiles[image] is None:
-                print "Skipping session %s..." % sessionFiles['session']
+                self.logging.info("Skipping session %s", sessionFiles['session'])
                 # raise IOError("File not found!\nFile: %s" % sessionFiles[image])
                 if not self.testing:
                     self.database.unlockRecord('M', sessionFiles['record_id'])
-                    print "*" * 50
-                    print "DEBUG: sessionFiles ", sessionFiles
-                    print "DEBUG: image ", image
+                    self.logging.debug("image = %s", image)
                 break
         if None in sessionFiles.values():
-            print "DEBUG: calling onGetBatchFilesClicked()..."
+            self.logging.debug("'None' value in sessionFiles - recursive call initiated")
             self.onGetBatchFilesClicked()
         else:
             self.sessionFiles = sessionFiles
@@ -297,8 +301,9 @@ class DerivedImageQALogic(object):
 
 
     def loadData(self):
-        """ Load some default data for development and set up a viewing scenario for it """
-        print "loadData()"
+        """ Load some default data for development and set up a viewing scenario for it.
+        """
+        self.logging.debug("call")
         dataDialog = qt.QPushButton();
         dataDialog.setText('Loading files for session %s...' % self.currentSession);
         dataDialog.show()
@@ -318,7 +323,7 @@ class DerivedImageQALogic(object):
 
     def loadBackgroundNodeToMRMLScene(self, volumeNode):
         # Set up template scene
-        print "loadBackgroundNodeToMRMLScene()"
+        self.logging.debug("call")
         compositeNodes = slicer.util.getNodes('vtkMRMLSliceCompositeNode*')
         for compositeNode in compositeNodes.values():
             try:
@@ -331,7 +336,7 @@ class DerivedImageQALogic(object):
 
     def getEvaluationValues(self):
         """ Get the evaluation values from the widget """
-        print "getEvaluationValues()"
+        self.logging.debug("call")
         values = ()
         for region in self.regions:
             goodButton, badButton = self.widget._findRadioButtons(region)
@@ -346,7 +351,7 @@ class DerivedImageQALogic(object):
 
     def onNextButtonClicked(self):
         """ Capture the evaluation values, write them to the database, reset the widgets, then load the next dataset """
-        print "onNextButtonClicked()"
+        self.logging.debug("call")
         try:
             evaluations = self.getEvaluationValues()
         except:
@@ -356,7 +361,7 @@ class DerivedImageQALogic(object):
         try:
             self.writeToDatabase(values)
         except sqlite3.OperationalError:
-            print "Error here"
+            self.logging.error("SQL Error")
         count = self.count + 1
         if count <= self.maxCount - 1:
             self.count = count
@@ -367,7 +372,7 @@ class DerivedImageQALogic(object):
 
 
     def onPreviousButtonClicked(self):
-        print "onPreviousButtonClicked()"
+        self.logging.debug("call")
         try:
             evaluations = self.getEvaluationValues()
         except:
@@ -385,14 +390,14 @@ class DerivedImageQALogic(object):
 
 
     def loadNewSession(self):
-        print "loadNewSession()"
+        self.logging.debug("call")
         self.constructFilePaths()
         self.setCurrentSession()
         self.loadData()
 
 
     def exit(self):
-        print "exit()"
+        self.logging.debug("call")
         self.database.unlockRecord('U')
 
 

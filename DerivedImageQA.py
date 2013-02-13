@@ -1,20 +1,18 @@
 #! /usr/bin/env python
-import os
+try:
+    import logging
+    import logging.handlers
+    import os
 
-from __main__ import ctk
-from __main__ import qt
-from __main__ import slicer
-from __main__ import vtk
+    from QALib.derived_images import *
+    from QALib.derived_images import __slicer_module__
 
-from QALib.derived_images import *
-from QALib.derived_images import __slicer_module__
-
-### TODO: Add logging
-# try:
-#     import logging
-#     import logging.handlers
-# except ImportError:
-#     print "External modules not found!"
+    from __main__ import ctk
+    from __main__ import qt
+    from __main__ import slicer
+    from __main__ import vtk
+except ImportError:
+    print "External modules not found!"
 #     raise ImportError
 
 
@@ -31,6 +29,11 @@ class DerivedImageQA:
 
 class DerivedImageQAWidget:
     def __init__(self, parent=None, test=False):
+        logFile = os.path.join(os.environ['TMPDIR'], __name__ + '.log')
+        logging.basicConfig(filename=logFile,
+                            level=logging.DEBUG,
+                            format='%(module)s.%(funcName)s - %(levelname)s: %(message)s')
+        self.logging = logging.getLogger(__name__)
         self.images = ('t2_average', 't1_average') # T1 is second so that reviewers see it as background for regions
         self.regions = ('labels_tissue',
                         'caudate_left', 'caudate_right',
@@ -47,17 +50,17 @@ class DerivedImageQAWidget:
         # Handle the UI display with/without Slicer
         if not test:
             if parent is None:
-                self.parent = slicer.qMRMLWidget()
-                self.parent.setLayout(qt.QVBoxLayout())
-                self.parent.setMRMLScene(slicer.mrmlScene)
-                self.layout = self.parent.layout()
+            self.parent = slicer.qMRMLWidget()
+            self.parent.setLayout(qt.QVBoxLayout())
+            self.parent.setMRMLScene(slicer.mrmlScene)
+            self.layout = self.parent.layout()
                 self.logic = DerivedImageQALogic(self, test=test)
-                self.setup()
-                self.parent.show()
+            self.setup()
+            self.parent.show()
             else:
-                self.parent = parent
-                self.layout = self.parent.layout()
-                self.logic = DerivedImageQALogic(self, test=test)
+            self.parent = parent
+            self.layout = self.parent.layout()
+            self.logic = DerivedImageQALogic(self, test=test)
         else:
             self.logic = DerivedImageQALogic(self, test=test)
         elif test:
