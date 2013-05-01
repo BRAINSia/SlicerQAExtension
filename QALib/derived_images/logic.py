@@ -256,15 +256,19 @@ class DerivedImageQALogic(object):
                         print "**** Test: ", temp
                     if os.path.exists(temp):
                         sessionFiles[image] = temp
-                        break; break
-                    elif image == 't2_average':  # Assume this is a T1-only session
+                        break ; break
+                    elif self.testing:
+                        print "Test: %s" % temp
+                    elif image == 't2_average':
+                        # Assume this is a T1-only session
                         sessionFiles[image] = os.path.join(__slicer_module__, 'Resources', 'images', 'emptyImage.nii.gz')
-                        break; break
+                        break; break;
                     else:
                         sessionFiles[image] = None
                         print "**** File not found: %s" % temp
             if sessionFiles[image] is None:
-                print "*** Skipping session %s..." % sessionFiles['session']
+                print "Skipping session %s..." % sessionFiles['session']
+                # raise IOError("File not found!\nFile: %s" % sessionFiles[image])
                 if not self.testing:
                     self.database.unlockRecord('M', sessionFiles['record_id'])
                     print "*" * 50
@@ -390,3 +394,7 @@ class DerivedImageQALogic(object):
     def exit(self):
         print "exit()"
         self.database.unlockRecord('U')
+
+# if __name__ == '__main__':
+#     import doctest
+#     doctest.testmod()
