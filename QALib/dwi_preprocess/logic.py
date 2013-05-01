@@ -160,7 +160,8 @@ class DWIPreprocessingQALogic(object):
         baseDirectory = os.path.join(row[5], row[1], row[2], row[3], row[4])
         sessionFiles['session'] = row[4]
         sessionFiles['record_id'] = row[0]
-        outputDir = os.path.join(baseDirectory, 'DTIPrepOutput')
+        #outputDir = os.path.join(baseDirectory, 'DTIPrepOutput')
+        outputDir = os.path.join(baseDirectory, '')
         outputList = os.listdir(outputDir)
         for item in outputList:
             if item.rfind('_QCed.nrrd') >= 0:

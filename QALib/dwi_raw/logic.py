@@ -32,6 +32,7 @@ class DWIRawQALogic(object):
         self.count = 0 # Starting value
         self.maxCount = 0
         self.currentSession = None
+        self.currentFile = None
         self.currentValues = (None,)*len(self.questions)
         self.sessionFile = {}
         self.testing = test
@@ -52,11 +53,10 @@ class DWIRawQALogic(object):
         """
         config = cParser.SafeConfigParser()
         if self.testing:
-            configFile = os.path.join(__slicer_module__, 'test.cfg')
-            self.user_id = 'user1'
+            self.user_id = 'testuser1'
         else:
-            configFile = os.path.join(__slicer_module__, 'autoworkup.cfg')
             self.user_id = os.environ['USER']
+        configFile = os.path.join(__slicer_module__, 'autoworkup.cfg')
         if not os.path.exists(configFile):
             raise IOError("File {0} not found!".format(configFile))
         config.read(configFile)
@@ -115,7 +115,8 @@ class DWIRawQALogic(object):
         row = self.batchRows[self.count]
         self.sessionFile = {}
         baseDirectory = os.path.join(row[1], row[2], row[3], row[4], row[5])
-        fileName = '%s_%s_%s.nrrd' % (row[3], row[4], row[6])
+        self.currentFile = row[6]
+        fileName = '%s_%s_%s.nrrd' % (row[3], row[4], self.currentFile)
         self.sessionFile['file'] = fileName
         self.sessionFile['filePath'] = os.path.join(baseDirectory, fileName)
         self.sessionFile['session'] = row[4]
@@ -137,7 +138,7 @@ class DWIRawQALogic(object):
         dataDialog.setText('Loading file for session %s...' % self.currentSession);
         dataDialog.show()
         volumeLogic = slicer.modules.volumes.logic()
-        dwiNodeName = '%s_dwi_raw' % self.currentSession
+        dwiNodeName = '%s_%s' % (self.currentSession, self.currentFile)
         dwiVolumeNode = slicer.util.getNode(dwiNodeName)
         if dwiVolumeNode is None:
             volumeLogic.AddArchetypeVolume(self.sessionFile['filePath'], dwiNodeName, 0)

@@ -247,6 +247,10 @@ class DerivedImageQALogic(object):
                         break ; break
                     elif self.testing:
                         print "Test: %s" % temp
+                    elif image == 't2_average':
+                        # Assume this is a T1-only session
+                        sessionFiles[image] = os.path.join(__slicer_module__, 'Resources', 'images', 'emptyImage.nii.gz')
+                        break; break;
                     else:
                         print "File not found: %s" % temp
             if sessionFiles[image] is None:

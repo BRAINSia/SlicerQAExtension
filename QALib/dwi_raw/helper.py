@@ -194,6 +194,8 @@ class postgresDatabase(object):
             self.cursor.execute(sqlCommand, values + (self.reviewer_id,))
             self.connection.commit()
         except:
+            print "Values attempted to write:", values, self.reviewer_id
+            print "SQL COMMAND:", sqlCommand
             raise
         finally:
             self.closeDatabase()
