@@ -141,7 +141,16 @@ class DWIPreprocessingQAWidget:
         """ Disable and reset all radio buttons in the widget """
         radios = self.imageQAWidget.findChildren("QRadioButton")
         for radio in radios:
-            radio.setChecked(False)
+            if radio.checked:
+                # Fix for a bug in QT: see http://qtforum.org/article/19619/qradiobutton-setchecked-bug.html
+                radio.setCheckable(False)
+                radio.update()
+                radio.setCheckable(True)
+                print "Resetting radio {0}".format(radio.objectName)
+                if radio.isChecked():
+                    raise Exception("Radio is NOT reset!")
+                else:
+                    print "Resetting radio {0}...".format(radio.objectName)
         checkboxes = self.dwiArtifactWidget.findChildren("QCheckBox")
         for checkbox in checkboxes:
             checkbox.setChecked(False)
