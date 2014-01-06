@@ -211,6 +211,7 @@ class DerivedImageQAWidget:
 
     def resetWidget(self):
         self.resetRadioWidgets()
+        self.resetClipboard()
 
     def grabNotes(self):
         self.notes = None
@@ -224,6 +225,9 @@ class DerivedImageQAWidget:
     def cancelNotes(self):
         # TODO:
         pass
+
+    def resetClipboard(self):
+        self.clipboard.clear()
 
     def onGetBatchFilesClicked(self):
         print "gui:onGetBatchFilesClicked()"
