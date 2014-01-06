@@ -188,7 +188,7 @@ class postgresDatabase(object):
             valueString = ("?, " * (len(values) + 1))[:-2]
             sqlCommand = "INSERT INTO dwi_raw_reviews \
                             (record_id, \
-                            question_one, question_two, question_three, question_four, \
+                            question_one, question_two, question_three, question_four, comments, \
                             reviewer_id\
                             ) VALUES (%s)" % valueString
             self.cursor.execute(sqlCommand, values + (self.reviewer_id,))

@@ -37,6 +37,8 @@ class DWIrawQAWidget:
         self.currentSession = None
         self.navigationWidget = None
         self.gradientDisplayWidget = None
+        self.followUpDialog = None
+        self.notes = None
         # Handle the UI display with/without Slicer
         if parent is None:
             self.parent = slicer.qMRMLWidget()
@@ -52,6 +54,13 @@ class DWIrawQAWidget:
             self.logic = DWIRawQALogic(self, False)
 
     def setup(self):
+        self.followUpDialog = self.loadUIFile('Resources/UI/followUpDialog.ui')
+        self.clipboard = qt.QApplication.clipboard()
+        self.textEditor = self.followUpDialog.findChild("QTextEdit", "textEditor")
+        self.textEditor.connect("clear()", self.resetClipboard)
+        buttonBox = self.followUpDialog.findChild("QDialogButtonBox", "buttonBox")
+        buttonBox.connect("accepted()", self.grabNotes)
+        buttonBox.connect("rejected()", self.cancelNotes)
         # Evaluation subsection
         self.imageQAWidget = self.loadUIFile('Resources/UI/queryQACollapsibleButton.ui')
         qaLayout = qt.QVBoxLayout(self.imageQAWidget)
@@ -174,12 +183,32 @@ class DWIrawQAWidget:
                     else:
                         values = values + ("NULL",)
                         print "Warning: No value for %s" % question
-        return values
+        self.followUpDialog.exec_()
+        if self.followUpDialog.result() and not self.notes is None:
+            return values + (self.notes,)
+        else:
+            return values + ("NULL",)
 
     def resetWidget(self):
         print "Resetting widgets..."
         self.resetRadioWidgets()
         self.gradientDisplayWidget.close()
+        self.resetClipboard()
+
+    def grabNotes(self):
+        self.notes = None
+        self.notes = str(self.textEditor.toPlainText())
+        # TODO: Format notes
+        ### if self.notes = '':
+        ###     self.followUpDialog.show()
+        ###     self.textEditor.setText("A comment is required!")
+
+    def cancelNotes(self):
+        # TODO:
+        pass
+
+    def resetClipboard(self):
+        self.clipboard.clear()
 
     def getValues(self):
         values = self.getRadioValues()
@@ -187,7 +216,7 @@ class DWIrawQAWidget:
 
     def checkValues(self):
         values = self.getValues()
-        if len(values) == len(self.htmlFileName):
+        if len(values) == len(self.htmlFileName) + 1:
             self.resetWidget()
             return (0, values)
         elif len(values) == 0:

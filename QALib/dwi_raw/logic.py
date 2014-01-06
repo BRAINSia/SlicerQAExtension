@@ -195,8 +195,9 @@ class DWIRawQALogic(object):
             self.count = count
         else:
             self.count = 0
-        self.loadNewSession()
         self.widget.resetWidget()
+        self.loadNewSession()
+
 
     def onPreviousButtonClicked(self):
         try:
@@ -213,8 +214,9 @@ class DWIRawQALogic(object):
             self.count = count
         else:
             self.count = self.maxCount - 1
-        self.loadNewSession()
         self.widget.resetWidget()
+        self.loadNewSession()
+
 
     def loadNewSession(self):
         self.constructFilePaths()
