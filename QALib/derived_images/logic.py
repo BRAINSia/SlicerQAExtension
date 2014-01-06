@@ -1,17 +1,20 @@
-try:
-    import os
-    import ConfigParser as cParser
-    from . import __slicer_module__, postgresDatabase
+import os
+from warnings import warn
 
-    from __main__ import ctk
-    from __main__ import qt
-    from __main__ import slicer
-    from __main__ import vtk
-    # import logging
-    # import logging.handlers
+from __main__ import ctk
+from __main__ import qt
+from __main__ import slicer
+from __main__ import vtk
+
+from . import __slicer_module__, postgresDatabase
+
+try:
+    import ConfigParser as cParser
+    import logging
+    import logging.handlers
 except ImportError:
     print "External modules not found!"
-    # raise ImportError
+    raise ImportError
 
 
 class DerivedImageQALogic(object):
@@ -31,24 +34,22 @@ class DerivedImageQALogic(object):
         self.count = 0 # Starting value
         self.maxCount = 0
         self.currentSession = None
-        self.currentValues = (None,) * len(self.images + self.regions)
+        self.currentValues = (None,)*len(self.images + self.regions)
         self.sessionFiles = {}
         self.testing = test
         if self.testing:
             print "Testing logic is ON"
         self.setup()
 
+
     def setup(self):
         print "setup()"
-        self.createColorTable()
         config = cParser.SafeConfigParser()
         self.config = cParser.SafeConfigParser()
         logicConfig = os.path.join(__slicer_module__, 'derived_images-all_Labels_seg.cfg')
         if self.testing:
-            ### HACK
-            databaseConfig = os.path.join(__slicer_module__, 'database.cfg.EXAMPLE')
+            databaseConfig = os.path.join(__slicer_module__, 'testdatabase.cfg')
             self.user_id = 'user1'
-            ### END HACK
         else:
             databaseConfig = os.path.join(__slicer_module__, 'autoworkup.cfg')
             self.user_id = os.environ['USER']
@@ -60,38 +61,14 @@ class DerivedImageQALogic(object):
         port = config.getint('Postgres', 'Port')
         database = config.get('Postgres', 'Database')
         db_user = config.get('Postgres', 'User')
-        password = config.get('Postgres', 'Password') ### TODO: Use secure password handling (see RunSynchronization.py in phdxnat project)
+        password = config.get('Postgres', 'Password')
+        ## TODO: Use secure password handling (see RunSynchronization.py in phdxnat project)
         #        import hashlib as md5
         #        md5Password = md5.new(password)
-        ### HACK
-        if not self.testing:
-            self.database = postgresDatabase(host, port, db_user, database, password,
-                                             self.user_id, self.batchSize)
-        ### END HACK
+        self.database = postgresDatabase(host, port, db_user, database, password,
+                                         self.user_id, self.batchSize)
         self.config.read(logicConfig)
 
-
-    def createColorTable(self):
-        """
-        """
-        print "createColorTable()"
-        self.colorTableNode = slicer.vtkMRMLColorTableNode()
-        self.colorTableNode.SetFileName(os.path.join(__slicer_module__, 'Resources', 'ColorFile', self.colorTable))
-        self.colorTableNode.SetName(self.colorTable[:-4])
-        storage = self.colorTableNode.CreateDefaultStorageNode()
-        slicer.mrmlScene.AddNode(storage)
-        self.colorTableNode.AddAndObserveStorageNodeID(storage.GetID())
-        slicer.mrmlScene.AddNode(self.colorTableNode)
-        storage.SetFileName(self.colorTableNode.GetFileName())
-        storage.SetReadState(True)
-        storage.ReadData(self.colorTableNode, True)
-
-    def addEntryToColorTable(self, buttonName):
-        print "addEntryToColorTable()"
-        lTable = self.colorTableNode.GetLookupTable()
-        colorIndex = self.colorTableNode.GetColorIndexByName(buttonName)
-        color = lTable.GetTableValue(colorIndex)
-        self.colorTableNode.AddColor(buttonName, *color)
 
     def selectRegion(self, buttonName):
         """ Load the outline of the selected region into the scene
@@ -102,7 +79,6 @@ class DerivedImageQALogic(object):
             return -1
         labelNode = slicer.util.getNode(nodeName)
         if labelNode.GetLabelMap():
-            labelNode.GetDisplayNode().SetAndObserveColorNodeID(self.colorTableNode.GetID())
             compositeNodes = slicer.util.getNodes('vtkMRMLSliceCompositeNode*')
             for compositeNode in compositeNodes.values():
                 compositeNode.SetLabelVolumeID(labelNode.GetID())
@@ -114,6 +90,7 @@ class DerivedImageQALogic(object):
         else:
              self.loadBackgroundNodeToMRMLScene(labelNode)
 
+
     def constructLabelNodeName(self, buttonName):
         """ Create the names for the volume and label nodes """
         print "constructLabelNodeName()"
@@ -122,17 +99,19 @@ class DerivedImageQALogic(object):
             return nodeName
         return ''
 
+
     def onCancelButtonClicked(self):
         # TODO: Populate this function
         #   onNextButtonClicked WITHOUT the write to database
         print "Cancelled!"
+
 
     def writeToDatabase(self, evaluations):
         print "writeToDatabase()"
         if self.testing:
             recordID = str(self.batchRows[self.count]['record_id'])
         else:
-            recordID = self.batchRows[self.count][0]
+           recordID = self.batchRows[self.count][0]
         values = (recordID,) + evaluations
         try:
             if self.testing:
@@ -145,6 +124,7 @@ class DerivedImageQALogic(object):
             print "Error writing to database!"
             raise
 
+
     def _getLabelFileNameFromRegion(self, regionName):
         print "_getLabelFileNameFromRegion()"
         try:
@@ -154,6 +134,7 @@ class DerivedImageQALogic(object):
             region = regionName
             fileName = '_'.join([region, 'seg.nii.gz'])
         return fileName
+
 
     def onGetBatchFilesClicked(self):
         """ """
@@ -179,13 +160,12 @@ class DerivedImageQALogic(object):
         competition.  Load the correct labels from all_Labels_seg.nii.gz and have the corresponding labels display for each label
         choice in the module.
         """
+        print "_all_Labels_seg()"
         import numpy
         allLabelName = 'allLabels_seg_{0}'.format(session)
         labelNode = slicer.util.getNode(allLabelName)
         if labelNode is None:
-            isLoaded, labelNode = slicer.util.loadLabelVolume(oldfilename, properties={'labelmap': True}, returnNode=True)
-            labelNode.SetName(allLabelName)
-            assert isLoaded, "Segmentation label file {0} could not be loaded".format(oldfilename)
+            labelNode = self.loadLabelVolume(allLabelName, oldfilename)
         la = slicer.util.array(labelNode.GetID())
         outputLabelNode = slicer.modules.volumes.logic().CloneVolume(slicer.mrmlScene, labelNode, nodeName)
         ma = slicer.util.array(outputLabelNode.GetID())
@@ -262,32 +242,24 @@ class DerivedImageQALogic(object):
         sessionFiles['record_id'] = row[0]
 
         for image in self.images + self.regions:
-            sessionFiles[image] = None
             imageDirs = eval(self.config.get(image, 'directories'))
             imageFiles = eval(self.config.get(image, 'filenames'))
             for _dir in imageDirs:
                 for _file in imageFiles:
                     temp = os.path.join(baseDirectory, _dir, _file)
+                    if self.testing:
+                        print "**** Test: ", temp
                     if os.path.exists(temp):
                         sessionFiles[image] = temp
-                        if self.config.has_option(image, 'label'):  # uses all_Labels_seg.nii.gz
-                            assert image in self.regions, "{0} is NOT a region".format(image)
-                            imageThreshold = eval(self.config.get(image, 'label'))  # Threshold value for all_Labels_seg.nii.gz
-                            regionNodeName = "%s_%s" %(sessionFiles['session'], image)
-                            self._all_Labels_seg(temp, nodeName=regionNodeName, level=imageThreshold,
-                                                 session=sessionFiles['session'])  # Create nodes in mrmlScene
-                        break ; break
-                    elif self.testing:
-                        print "Test: %s" % temp
-                    elif image == 't2_average':
-                        # Assume this is a T1-only session
+                        break; break
+                    elif image == 't2_average':  # Assume this is a T1-only session
                         sessionFiles[image] = os.path.join(__slicer_module__, 'Resources', 'images', 'emptyImage.nii.gz')
-                        break; break;
+                        break; break
                     else:
-                        print "File not found: %s" % temp
+                        sessionFiles[image] = None
+                        print "**** File not found: %s" % temp
             if sessionFiles[image] is None:
-                print "Skipping session %s..." % sessionFiles['session']
-                # raise IOError("File not found!\nFile: %s" % sessionFiles[image])
+                print "*** Skipping session %s..." % sessionFiles['session']
                 if not self.testing:
                     self.database.unlockRecord('M', sessionFiles['record_id'])
                     print "*" * 50
@@ -297,66 +269,43 @@ class DerivedImageQALogic(object):
         if None in sessionFiles.values():
             print "DEBUG: calling onGetBatchFilesClicked()..."
             self.onGetBatchFilesClicked()
-            # TODO: Generalize for a batch size > 1
-            # for count in range(self.maxCount - self.count):
-            #     print "This is the count: %d" % count
         else:
             self.sessionFiles = sessionFiles
 
 
+    def loadScalarVolume(self, nodeName, filename):
+        isLoaded, volumeNode = slicer.util.loadVolume(filename, properties={'name':nodeName}, returnNode=True)
+        assert isLoaded, "File failed to load: {0}".format(filename)
+        volumeNode.GetDisplayNode().AutoWindowLevelOn()
+        return volumeNode
+
+
+    def loadLabelVolume(self, nodeName, filename):
+        """ Load a label volume into the MRML scene and set the display node """
+        isLoaded, volumeNode = slicer.util.loadLabelVolume(filename, properties={'labelmap':True, 'name':nodeName}, returnNode=True)
+        assert isLoaded, "File failed to load: {0}".format(filename)
+        return volumeNode
+
+
     def loadData(self):
-        """ Load some default data for development and set up a viewing scenario for it.
-        """
+        """ Load some default data for development and set up a viewing scenario for it """
         print "loadData()"
         dataDialog = qt.QPushButton();
         dataDialog.setText('Loading files for session %s...' % self.currentSession);
         dataDialog.show()
-        volumeLogic = slicer.modules.volumes.logic()
         t1NodeName = '%s_t1_average' % self.currentSession
-        t1VolumeNode = slicer.util.getNode(t1NodeName)
-        if t1VolumeNode is None:
-            try:
-                volumeLogic.AddArchetypeScalarVolume(self.sessionFiles['t1_average'], t1NodeName, 0, None)
-            except TypeError:
-                print "DEBUG: ", self.sessionFiles['t1_average']
-                volumeLogic.AddArchetypeScalarVolume(self.sessionFiles['t1_average'], t1NodeName, 0)
-                print "DEBUG: done"
-            if slicer.util.getNode(t1NodeName) is None:
-                raise IOError("Could not load session file for T1! File: %s" % self.sessionFiles['t1_average'])
-            t1VolumeNode = slicer.util.getNode(t1NodeName)
-            t1VolumeNode.CreateDefaultDisplayNodes()
-            t1VolumeNode.GetDisplayNode().AutoWindowLevelOn()
+        self.loadScalarVolume(t1NodeName, self.sessionFiles['t1_average'])
         t2NodeName = '%s_t2_average' % self.currentSession
-        t2VolumeNode = slicer.util.getNode(t2NodeName)
-        if t2VolumeNode is None:
-            try:
-                volumeLogic.AddArchetypeScalarVolume(self.sessionFiles['t2_average'], t2NodeName, 0, None)
-            except TypeError:
-                print "DEBUG: ", self.sessionFiles['t2_average']
-                volumeLogic.AddArchetypeScalarVolume(self.sessionFiles['t2_average'], t2NodeName, 0)
-                print "DEBUG: done"
-            if slicer.util.getNode(t2NodeName) is None:
-                raise IOError("Could not load session file for T2! File: %s" % self.sessionFiles['t2_average'])
-            t2VolumeNode = slicer.util.getNode(t2NodeName)
-            t2VolumeNode.CreateDefaultDisplayNodes()
-            t2VolumeNode.GetDisplayNode().AutoWindowLevelOn()
-        for region in self.regions:
-            regionNodeName = '%s_%s' % (self.currentSession, region)
-            regionNode = slicer.util.getNode(regionNodeName)
-            if regionNode is None:
-                try:
-                    volumeLogic.AddArchetypeScalarVolume(self.sessionFiles[region], regionNodeName, 1, None)
-                except TypeError:
-                    print "DEBUG: ", self.sessionFiles[region]
-                    volumeLogic.AddArchetypeScalarVolume(self.sessionFiles[region], regionNodeName, 1)
-                    print "DEBUG: done"
-                if slicer.util.getNode(regionNodeName) is None:
-                    raise IOError("Could not load session file for region %s! File: %s" % (region, self.sessionFiles[region]))
-                regionNode = slicer.util.getNode(regionNodeName)
-                displayNode = slicer.vtkMRMLLabelMapVolumeDisplayNode()
-                slicer.mrmlScene.AddNode(displayNode)
-                regionNode.SetAndObserveNthDisplayNodeID(0, displayNode.GetID())
+        self.loadScalarVolume(t2NodeName, self.sessionFiles['t2_average'])
+        for image in self.regions:
+            regionNodeName = "%s_%s" % (self.currentSession, image)
+            if self.config.has_option(image, 'label'):  # uses all_Labels_seg.nii.gz
+                imageThreshold = eval(self.config.get(image, 'label'))  # Threshold value for all_Labels_seg.nii.gz
+                self._all_Labels_seg(self.sessionFiles[image], nodeName=regionNodeName, level=imageThreshold, session=self.currentSession)  # Create nodes in mrmlScene
+            else:  # TissueClassify image
+                self.loadLabelVolume(regionNodeName, self.sessionFiles[image])
         dataDialog.close()
+
 
     def loadBackgroundNodeToMRMLScene(self, volumeNode):
         # Set up template scene
@@ -369,6 +318,7 @@ class DerivedImageQALogic(object):
                 raise IOError("Could not find nodes for session %s" % self.currentSession)
         applicationLogic = slicer.app.applicationLogic()
         applicationLogic.FitSliceToAll()
+
 
     def getEvaluationValues(self):
         """ Get the evaluation values from the widget """
@@ -383,6 +333,7 @@ class DerivedImageQALogic(object):
             else:
                 Exception('Session cannot be changed until all regions are evaluated.  Missing region: %s' % region)
         return values
+
 
     def onNextButtonClicked(self):
         """ Capture the evaluation values, write them to the database, reset the widgets, then load the next dataset """
@@ -405,6 +356,7 @@ class DerivedImageQALogic(object):
         self.loadNewSession()
         self.widget.resetWidget()
 
+
     def onPreviousButtonClicked(self):
         print "onPreviousButtonClicked()"
         try:
@@ -422,16 +374,14 @@ class DerivedImageQALogic(object):
         self.loadNewSession()
         self.widget.resetWidget()
 
+
     def loadNewSession(self):
         print "loadNewSession()"
         self.constructFilePaths()
         self.setCurrentSession()
         self.loadData()
 
+
     def exit(self):
         print "exit()"
         self.database.unlockRecord('U')
-
-# if __name__ == '__main__':
-#     import doctest
-#     doctest.testmod()

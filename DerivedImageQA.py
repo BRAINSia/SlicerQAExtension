@@ -1,19 +1,22 @@
 #! /usr/bin/env python
+import os
+
+from __main__ import ctk
+from __main__ import qt
+from __main__ import slicer
+from __main__ import vtk
+
+from QALib.derived_images import *
+from QALib.derived_images import __slicer_module__
+
 ### TODO: Add logging
-try:
-    import os
-    from QALib.derived_images import *
-    from QALib.derived_images import __slicer_module__
-    print __slicer_module__
-    from __main__ import ctk
-    from __main__ import qt
-    from __main__ import slicer
-    from __main__ import vtk
+# try:
 #     import logging
 #     import logging.handlers
-except ImportError:
-    print "External modules not found!"
+# except ImportError:
+#     print "External modules not found!"
 #     raise ImportError
+
 
 class DerivedImageQA:
     def __init__(self, parent):
@@ -39,29 +42,31 @@ class DerivedImageQAWidget:
         self.currentSession = None
         self.imageQAWidget = None
         self.navigationWidget = None
-        self.followUpDialog = None
+        self.notesDialog = None
         self.notes = None
         # Handle the UI display with/without Slicer
-        if parent is None and not test:
-            self.parent = slicer.qMRMLWidget()
-            self.parent.setLayout(qt.QVBoxLayout())
-            self.parent.setMRMLScene(slicer.mrmlScene)
-            self.layout = self.parent.layout()
-            self.logic = DerivedImageQALogic(self)
-            self.setup()
-            self.parent.show()
-        elif not test:
-            self.parent = parent
-            self.layout = self.parent.layout()
-            self.logic = DerivedImageQALogic(self, test=test)
-        elif test:
+        if not test:
+            if parent is None:
+                self.parent = slicer.qMRMLWidget()
+                self.parent.setLayout(qt.QVBoxLayout())
+                self.parent.setMRMLScene(slicer.mrmlScene)
+                self.layout = self.parent.layout()
+                self.logic = DerivedImageQALogic(self, test=test)
+                self.setup()
+                self.parent.show()
+            else:
+                self.parent = parent
+                self.layout = self.parent.layout()
+                self.logic = DerivedImageQALogic(self, test=test)
+        else:
             self.logic = DerivedImageQALogic(self, test=test)
 
+
     def setup(self):
-        self.followUpDialog = self.loadUIFile('Resources/UI/followUpDialog.ui')
+        self.notesDialog = self.loadUIFile('Resources/UI/notesDialog.ui')
         self.clipboard = qt.QApplication.clipboard()
-        self.textEditor = self.followUpDialog.findChild("QTextEdit", "textEditor")
-        buttonBox = self.followUpDialog.findChild("QDialogButtonBox", "buttonBox")
+        self.textEditor = self.notesDialog.findChild("QTextEdit", "textEditor")
+        buttonBox = self.notesDialog.findChild("QDialogButtonBox", "buttonBox")
         buttonBox.connect("accepted()", self.grabNotes)
         buttonBox.connect("rejected()", self.cancelNotes)
         # Batch navigation
@@ -106,6 +111,7 @@ class DerivedImageQAWidget:
             self.logic.onGetBatchFilesClicked()
         ### END ###
 
+
     def loadUIFile(self, fileName):
         """ Return the object defined in the Qt Designer file """
         uiloader = qt.QUiLoader()
@@ -115,6 +121,7 @@ class DerivedImageQAWidget:
             return uiloader.load(qfile)
         finally:
             qfile.close()
+
 
     def reviewButtonFactory(self, image):
         widget = self.loadUIFile('Resources/UI/reviewButtonsWidget.ui')
@@ -133,6 +140,7 @@ class DerivedImageQAWidget:
         followUpButton.objectName = image + "_followUp"
         return widget
 
+
     def _formatText(self, text):
         parsed = text.split("_")
         if len(parsed) > 1:
@@ -141,12 +149,14 @@ class DerivedImageQAWidget:
             text = parsed[0].capitalize()
         return text
 
+
     def connectSessionButtons(self):
         """ Connect the session navigation buttons to their logic """
         # TODO: Connect buttons
         ### self.nextButton.connect('clicked()', self.logic.onNextButtonClicked)
         ### self.previousButton.connect('clicked()', self.logic.onPreviousButtonClicked)
         self.quitButton.connect('clicked()', self.exit)
+
 
     def connectReviewButtons(self):
         """ Map the region buttons clicked() signals to the function """
@@ -158,6 +168,7 @@ class DerivedImageQAWidget:
             self.buttonMapper.setMapping(pushButton, image)
             pushButton.connect('clicked()', self.buttonMapper, 'map()')
 
+
     def enableRadios(self, image):
         """ Enable the radio buttons that match the given region name """
         self.imageQAWidget.findChild("QWidget", image + "_radioWidget").setEnabled(True)
@@ -167,6 +178,7 @@ class DerivedImageQAWidget:
             radio.setCheckable(True)
             radio.setEnabled(True)
 
+
     def disableRadios(self, image):
         """ Disable all radio buttons that DO NOT match the given region name """
         radios = self.imageQAWidget.findChildren("QRadioButton")
@@ -175,6 +187,7 @@ class DerivedImageQAWidget:
                 radio.setShortcutEnabled(False)
                 radio.setEnabled(False)
 
+
     def resetRadioWidgets(self):
         """ Disable and reset all radio buttons in the widget """
         radios = self.imageQAWidget.findChildren("QRadioButton")
@@ -182,9 +195,11 @@ class DerivedImageQAWidget:
             radio.setCheckable(False)
             radio.setEnabled(False)
 
+
     def getRadioValues(self):
         values = ()
-        needsFollowUp = False
+        needsNotes = False
+        regionNotes = []
         radios = self.imageQAWidget.findChildren("QRadioButton")
         for image in self.images + self.regions:
             for radio in radios:
@@ -193,15 +208,20 @@ class DerivedImageQAWidget:
                         values = values + (1,)
                     elif radio.objectName.find("_bad") > -1:
                         values = values + (0,)
+                        needsNotes = True
+                        regionNotes.append(image)
                     elif radio.objectName.find("_followUp") > -1:
                         values = values + (-1,)
-                        needsFollowUp = True
+                        needsNotes = True
+                        regionNotes.append(image)
                     else:
                         values = values + ("NULL",)
                         print "Warning: No value for %s" % image
-        if needsFollowUp:
-            self.followUpDialog.exec_()
-            if self.followUpDialog.result() and not self.notes is None:
+        if needsNotes:
+            notesText = "\n".join([x + ":" for x in regionNotes])
+            self.textEditor.setText(notesText)
+            self.notesDialog.exec_()
+            if self.notesDialog.result() and not self.notes is None:
                 values = values + (self.notes,)
             else:
                 values = values + ("NULL",)
@@ -209,21 +229,22 @@ class DerivedImageQAWidget:
             values = values + ("NULL",)
         return values
 
+
     def resetWidget(self):
         self.resetRadioWidgets()
         self.resetClipboard()
 
+
     def grabNotes(self):
         self.notes = None
         self.notes = str(self.textEditor.toPlainText())
-        # TODO: Format notes
-        ### if self.notes = '':
-        ###     self.followUpDialog.show()
-        ###     self.textEditor.setText("A comment is required!")
+        self.notes = ', '.join(self.notes.splitlines())
+        print self.notes
         self.textEditor.clear()
 
+
     def cancelNotes(self):
-        # TODO:
+        # TODO: Require comments
         pass
 
     def resetClipboard(self):
