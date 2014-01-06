@@ -31,7 +31,7 @@ class DerivedImageQALogic(object):
         self.count = 0 # Starting value
         self.maxCount = 0
         self.currentSession = None
-        self.currentValues = (None,)*len(self.images + self.regions)
+        self.currentValues = (None,) * len(self.images + self.regions)
         self.sessionFiles = {}
         self.testing = test
         if self.testing:
@@ -43,7 +43,7 @@ class DerivedImageQALogic(object):
         self.createColorTable()
         config = cParser.SafeConfigParser()
         self.config = cParser.SafeConfigParser()
-        logicConfig = os.path.join(__slicer_module__, 'derived_images.cfg')
+        logicConfig = os.path.join(__slicer_module__, 'derived_images-all_Labels_seg.cfg')
         if self.testing:
             ### HACK
             databaseConfig = os.path.join(__slicer_module__, 'database.cfg.EXAMPLE')
@@ -171,6 +171,31 @@ class DerivedImageQALogic(object):
         self.currentSession = self.sessionFiles['session']
         self.widget.currentSession = self.currentSession
 
+
+    def _all_Labels_seg(self, oldfilename, nodeName, level, session):
+        """
+        From PREDICTIMG-2335: Derived Images QA has been loading the individual segmentations in the
+        CleanedDenoisedRFSegmentations folder, not the combined all_Labels_seg file which has the final segmentations after
+        competition.  Load the correct labels from all_Labels_seg.nii.gz and have the corresponding labels display for each label
+        choice in the module.
+        """
+        import numpy
+        allLabelName = 'allLabels_seg_{0}'.format(session)
+        labelNode = slicer.util.getNode(allLabelName)
+        if labelNode is None:
+            isLoaded, labelNode = slicer.util.loadLabelVolume(oldfilename, properties={'labelmap': True}, returnNode=True)
+            labelNode.SetName(allLabelName)
+            assert isLoaded, "Segmentation label file {0} could not be loaded".format(oldfilename)
+        la = slicer.util.array(labelNode.GetID())
+        outputLabelNode = slicer.modules.volumes.logic().CloneVolume(slicer.mrmlScene, labelNode, nodeName)
+        ma = slicer.util.array(outputLabelNode.GetID())
+        mask = numpy.ndarray.copy(la)
+        mask[mask != level] = 0
+        mask[mask == level] = 1
+        ma[:] = mask
+        outputLabelNode.GetImageData().Modified()
+
+
     def constructFilePaths(self):
         """
         >>> import DerivedImagesQA as diqa
@@ -235,6 +260,7 @@ class DerivedImageQALogic(object):
         baseDirectory = os.path.join(row[5], row[1], row[2], row[3], row[4])
         sessionFiles['session'] = row[4]
         sessionFiles['record_id'] = row[0]
+
         for image in self.images + self.regions:
             sessionFiles[image] = None
             imageDirs = eval(self.config.get(image, 'directories'))
@@ -244,6 +270,12 @@ class DerivedImageQALogic(object):
                     temp = os.path.join(baseDirectory, _dir, _file)
                     if os.path.exists(temp):
                         sessionFiles[image] = temp
+                        if self.config.has_option(image, 'label'):  # uses all_Labels_seg.nii.gz
+                            assert image in self.regions, "{0} is NOT a region".format(image)
+                            imageThreshold = eval(self.config.get(image, 'label'))  # Threshold value for all_Labels_seg.nii.gz
+                            regionNodeName = "%s_%s" %(sessionFiles['session'], image)
+                            self._all_Labels_seg(temp, nodeName=regionNodeName, level=imageThreshold,
+                                                 session=sessionFiles['session'])  # Create nodes in mrmlScene
                         break ; break
                     elif self.testing:
                         print "Test: %s" % temp
