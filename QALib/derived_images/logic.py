@@ -32,7 +32,7 @@ class DerivedImageQALogic(object):
         self.count = 0 # Starting value
         self.maxCount = 0
         self.currentSession = None
-        self.currentValues = (None,)*len(self.images + self.regions)
+        self.currentValues = (None,) * len(self.images + self.regions)
         self.sessionFiles = {}
         self.testing = test
         if self.testing:
@@ -63,8 +63,11 @@ class DerivedImageQALogic(object):
         ## TODO: Use secure password handling (see RunSynchronization.py in phdxnat project)
         #        import hashlib as md5
         #        md5Password = md5.new(password)
-        self.database = postgresDatabase(host, port, db_user, database, password,
-                                         self.user_id, self.batchSize)
+        ### HACK
+        if not self.testing:
+            self.database = postgresDatabase(host, port, db_user, database, password,
+                                             self.user_id, self.batchSize)
+        ### END HACK
         self.config.read(logicConfig)
 
 
@@ -264,7 +267,8 @@ class DerivedImageQALogic(object):
                         sessionFiles[image] = None
                         print "**** File not found: %s" % temp
             if sessionFiles[image] is None:
-                print "*** Skipping session %s..." % sessionFiles['session']
+                print "Skipping session %s..." % sessionFiles['session']
+                # raise IOError("File not found!\nFile: %s" % sessionFiles[image])
                 if not self.testing:
                     self.database.unlockRecord('M', sessionFiles['record_id'])
                     print "*" * 50
@@ -390,3 +394,7 @@ class DerivedImageQALogic(object):
     def exit(self):
         print "exit()"
         self.database.unlockRecord('U')
+
+# if __name__ == '__main__':
+#     import doctest
+#     doctest.testmod()

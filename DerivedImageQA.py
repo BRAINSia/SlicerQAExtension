@@ -60,6 +60,8 @@ class DerivedImageQAWidget:
                 self.logic = DerivedImageQALogic(self, test=test)
         else:
             self.logic = DerivedImageQALogic(self, test=test)
+        elif test:
+            self.logic = DerivedImageQALogic(self, test=test)
 
 
     def setup(self):
