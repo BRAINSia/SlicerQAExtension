@@ -395,6 +395,7 @@ class DerivedImageQALogic(object):
         print "exit()"
         self.database.unlockRecord('U')
 
+
 # if __name__ == '__main__':
 #     import doctest
 #     doctest.testmod()
