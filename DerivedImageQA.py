@@ -105,6 +105,11 @@ class DerivedImageQAWidget:
         nLayout.addWidget(self.batchButton)
         self.layout.addWidget(self.imageQAWidget)
         self.layout.addStretch(1)
+        ### TESTING ###
+        if True:
+            print "Gui calling logic.onGetBatchFilesClicked()"
+            self.logic.onGetBatchFilesClicked()
+        ### END ###
         print "Gui calling logic.onGetBatchFilesClicked()"
         self.logic.onGetBatchFilesClicked()
         self.setRadioWidgets(self.logic.currentReviewValues)
