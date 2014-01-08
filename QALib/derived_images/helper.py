@@ -22,6 +22,7 @@ class sqliteDatabase(object):
         self.arraySize = arraySize
         self.createTestDatabase()
         self.getReviewerID()
+        self.review_column_names = self.review_columns()
 
     def createTestDatabase(self):
         """ Create a dummy database file"""
@@ -185,7 +186,10 @@ class postgresDatabase(object):
                 for key, arg in zip(argkeys, args):
                     setattr(self, key, arg)
         # Set the database default
-        if self.database is None: self.database = self.pguser
+        if self.database is None:
+            self.database = self.pguser
+        self.review_column_names = self.review_columns()
+
 
     def openDatabase(self):
         """ Open the database and create cursor and connection
@@ -248,12 +252,28 @@ class postgresDatabase(object):
         True
         """
         self.cursor.execute("SELECT * \
-                            FROM derived_images \
-                            WHERE status = 'U' \
-                            ORDER BY priority")
+                             FROM \
+                               public.derived_images, \
+                               public.image_reviews, \
+                               public.reviewers \
+                             WHERE \
+                               derived_images.record_id = image_reviews.record_id AND \
+                               reviewers.reviewer_id = image_reviews.reviewer_id AND \
+                               reviewers.login = 'roborater' AND \
+                               derived_images.status = 'U' \
+                             ORDER BY \
+                               derived_images.priority ASC, \
+                               image_reviews.review_id ASC")
         self.rows = self.cursor.fetchmany()
-        if not self.rows:
-            raise pg8000.errors.DataError("No rows were status == 'U' were found!")
+        if not self.rows is None:
+            return
+        self.cursor.execute("SELECT * \
+                             FROM derived_images \
+                             WHERE status = 'U' \
+                             ORDER BY priority ASC")
+        self.rows = self.cursor.fetchmany()
+        if not self.rows is None:
+            raise pg8000.errors.DataError("No rows with status == 'U' were found!")
 
     def lockBatch(self):
         """ Set the status of all batch members to 'L'
@@ -281,6 +301,7 @@ class postgresDatabase(object):
         finally:
             self.closeDatabase()
         return self.rows
+
 
     def writeReview(self, values):
         """ Write the review values to the postgres database
@@ -333,6 +354,17 @@ class postgresDatabase(object):
             raise
         finally:
             self.closeDatabase()
+
+    def review_columns(self):
+        self.openDatabase()
+        try:
+            self.cursor.execute("SELECT column_name FROM information_schema.columns \
+                                 WHERE table_name='image_reviews'")
+            columns = self.cursor.fetchall()
+        except:
+            raise
+        self.closeDatabase()
+        return columns
 
 if __name__ == "__main__":
     import doctest

@@ -105,11 +105,9 @@ class DerivedImageQAWidget:
         nLayout.addWidget(self.batchButton)
         self.layout.addWidget(self.imageQAWidget)
         self.layout.addStretch(1)
-        ### TESTING ###
-        if True:
-            print "Gui calling logic.onGetBatchFilesClicked()"
-            self.logic.onGetBatchFilesClicked()
-        ### END ###
+        print "Gui calling logic.onGetBatchFilesClicked()"
+        self.logic.onGetBatchFilesClicked()
+        self.setRadioWidgets(self.logic.currentReviewValues)
 
 
     def loadUIFile(self, fileName):
@@ -188,6 +186,47 @@ class DerivedImageQAWidget:
                 radio.setEnabled(False)
 
 
+    def setRadioWidgets(self, values):
+        """ Set only the values given from the roboRater SELECT """
+        if values == []:
+            return
+        columns = self.logic.database.review_column_names
+        columns = [x[0] for x in columns]  # Flatten list of lists
+        valueDict = dict(zip(columns, values))
+        valueDict.pop('notes')  #HACK: Makes debugging easier
+        valueDict.pop('review_time')
+        valueDict.pop('review_id')
+        valueDict.pop('reviewer_id')
+        radios = self.imageQAWidget.findChildren("QRadioButton")
+        for image, value in valueDict.items():
+            if image not in self.images + self.regions:
+                continue
+            self.enableRadios(image)
+            if value == 1:
+                suffix = "_good"
+            elif value == 0:
+                suffix = "_bad"
+            elif value == -1:
+                suffix = "_followUp"
+            elif value == -3:
+                print "Roborater has no value!"
+                continue
+            elif value == -2:
+                print "Missing T2 - skip value"
+                self.imageQAWidget.findChild("QWidget", "t2_average_radioWidget").setEnabled(False)
+            else:
+                raise NotImplementedError
+            for radio in radios:
+                if radio.objectName.find(image) > -1:
+                    if radio.objectName.find(suffix) > -1:
+                        radio.setChecked(True)
+                    else:
+                        radio.setCheckable(False)
+            self.imageQAWidget.findChild("QWidget", image + "_radioWidget").setEnabled(False)
+            if not image in self.images:
+                self.imageQAWidget.findChild("QPushButton", image).setEnabled(False)
+
+
     def resetRadioWidgets(self):
         """ Disable and reset all radio buttons in the widget """
         radios = self.imageQAWidget.findChildren("QRadioButton")
@@ -230,8 +269,14 @@ class DerivedImageQAWidget:
         return values
 
 
+    def resetButtons(self):
+        for image in self.images + self.regions:
+            self.imageQAWidget.findChild("QPushButton", image).setEnabled(True)
+
+
     def resetWidget(self):
         self.resetRadioWidgets()
+        self.resetButtons()
         self.resetClipboard()
 
 
@@ -239,7 +284,6 @@ class DerivedImageQAWidget:
         self.notes = None
         self.notes = str(self.textEditor.toPlainText())
         self.notes = ', '.join(self.notes.splitlines())
-        print self.notes
         self.textEditor.clear()
 
 
@@ -247,8 +291,10 @@ class DerivedImageQAWidget:
         # TODO: Require comments
         pass
 
+
     def resetClipboard(self):
         self.clipboard.clear()
+
 
     def onGetBatchFilesClicked(self):
         print "gui:onGetBatchFilesClicked()"
@@ -257,6 +303,7 @@ class DerivedImageQAWidget:
             self.logic.writeToDatabase(values)
             self.resetWidget()
             self.logic.onGetBatchFilesClicked()
+            self.setRadioWidgets(self.logic.currentReviewValues)
         else:
             # TODO: Handle this case intelligently
             print "Not enough values for the required columns!"

@@ -24,8 +24,6 @@ class DerivedImageQALogic(object):
         self.regions = self.widget.regions
         self.images = self.widget.images
         self.qaValueMap = {'good':'1', 'bad':'0', 'follow up':'-1'}
-        self.colorTable = "IPL-BrainAtlas-ColorFile.txt"
-        self.colorTableNode = None
         self.user_id = None
         self.database = None
         self.config = None
@@ -145,6 +143,11 @@ class DerivedImageQALogic(object):
         self.constructFilePaths()
         self.setCurrentSession()
         self.loadData()
+        if len(self.batchRows[self.count]) > 8:
+            # roboRater has done this already
+            self.currentReviewValues = self.batchRows[self.count][8:-4]
+        else:
+            self.currentReviewValues = []
 
 
     def setCurrentSession(self):
