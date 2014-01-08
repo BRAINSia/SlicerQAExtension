@@ -45,7 +45,7 @@ class DerivedImageQALogic(object):
         config = cParser.SafeConfigParser()
         self.config = cParser.SafeConfigParser()
         logicConfig = os.path.join(__slicer_module__, 'derived_images-all_Labels_seg.cfg')
-        if True:  ##HACK self.testing:
+        if self.testing:
             databaseConfig = os.path.join(__slicer_module__, 'testdatabase.cfg')
             self.user_id = 'user1'
         else:
