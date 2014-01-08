@@ -45,7 +45,7 @@ class DerivedImageQALogic(object):
         config = cParser.SafeConfigParser()
         self.config = cParser.SafeConfigParser()
         logicConfig = os.path.join(__slicer_module__, 'derived_images-all_Labels_seg.cfg')
-        if self.testing:
+        if True:  ##HACK self.testing:
             databaseConfig = os.path.join(__slicer_module__, 'testdatabase.cfg')
             self.user_id = 'user1'
         else:
@@ -262,7 +262,7 @@ class DerivedImageQALogic(object):
                     elif image == 't2_average':
                         # Assume this is a T1-only session
                         sessionFiles[image] = os.path.join(__slicer_module__, 'Resources', 'images', 'emptyImage.nii.gz')
-                        break; break;
+                        break; break
                     else:
                         sessionFiles[image] = None
                         print "**** File not found: %s" % temp
