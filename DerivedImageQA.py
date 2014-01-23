@@ -279,11 +279,21 @@ class DerivedImageQAWidget:
         self.resetButtons()
         self.resetClipboard()
 
+    def cleanNotes(self, notes):
+        sections = notes.split(', ')
+        cleaned = ''
+        for section in sections:
+            title, note = section.split(':')
+            if note != '':
+                cleaned = ', '.join([cleaned, section])
+        return cleaned.lstrip(', ')
+
 
     def grabNotes(self):
         self.notes = None
         self.notes = str(self.textEditor.toPlainText())
         self.notes = ', '.join(self.notes.splitlines())
+        self.notes = self.cleanNotes(self.notes)
         self.textEditor.clear()
 
 
