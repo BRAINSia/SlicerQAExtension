@@ -54,7 +54,7 @@ class DWIPreprocessingQAWidget:
             self.logic = DWIPreprocessingQALogic(self)
 
     def setup(self):
-        self.followUpDialog = self.loadUIFile('Resources/UI/followUpDialog.ui')
+        self.followUpDialog = self.loadUIFile('Resources/UI/notesDialog.ui')
         self.clipboard = qt.QApplication.clipboard()
         self.textEditor = self.followUpDialog.findChild("QTextEdit", "textEditor")
         buttonBox = self.followUpDialog.findChild("QDialogButtonBox", "buttonBox")
