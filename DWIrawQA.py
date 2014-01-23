@@ -54,7 +54,7 @@ class DWIrawQAWidget:
             self.logic = DWIRawQALogic(self, False)
 
     def setup(self):
-        self.followUpDialog = self.loadUIFile('Resources/UI/followUpDialog.ui')
+        self.followUpDialog = self.loadUIFile('Resources/UI/notesDialog.ui')
         self.clipboard = qt.QApplication.clipboard()
         self.textEditor = self.followUpDialog.findChild("QTextEdit", "textEditor")
         self.textEditor.connect("clear()", self.resetClipboard)
@@ -84,7 +84,7 @@ class DWIrawQAWidget:
         self.layout.addWidget(self.dwiWidget)
         self.layout.addStretch(1)
         # Get popup window widget
-        self.gradientDisplayWidget = self.loadUIFile('Resources/UI/followUpDialog.ui')
+        self.gradientDisplayWidget = self.loadUIFile('Resources/UI/notesDialog.ui')
         # Initialize data
         self.logic.onGetBatchFilesClicked()
 
