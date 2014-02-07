@@ -251,24 +251,6 @@ class postgresDatabase(object):
         >>> self.rows is None
         True
         """
-        ## HACK: get roborated images only
-        # self.cursor.execute("SELECT * \
-        #                      FROM \
-        #                        public.derived_images, \
-        #                        public.image_reviews, \
-        #                        public.reviewers \
-        #                      WHERE \
-        #                        derived_images.record_id = image_reviews.record_id AND \
-        #                        reviewers.reviewer_id = image_reviews.reviewer_id AND \
-        #                        reviewers.login = 'roborater' AND \
-        #                        derived_images.status = 'U' \
-        #                      ORDER BY \
-        #                        derived_images.priority ASC, \
-        #                        image_reviews.review_id ASC")
-        ## self.rows = self.cursor.fetchmany()
-        ## if not self.rows is None:
-        ##    return
-        ## END HACK
         self.cursor.execute("SELECT * \
                              FROM derived_images \
                              WHERE status = 'U' \
@@ -276,6 +258,16 @@ class postgresDatabase(object):
         self.rows = self.cursor.fetchmany()
         if self.rows is None:
             raise pg8000.errors.DataError("No rows with status == 'U' were found!")
+        for rowcount in range(len(self.rows)):
+            record_id = self.rows[rowcount][0]
+            roboraterID = 9
+
+            # print self.rows[rowcount]
+            self.cursor.execute("SELECT * FROM image_reviews WHERE reviewer_id = {0} AND record_id = {1}".format(roboraterID, record_id))
+            review = self.cursor.fetchone()
+            if review is not None:
+                self.rows[rowcount] = self.rows[rowcount] + review
+        return
 
     def lockBatch(self):
         """ Set the status of all batch members to 'L'
