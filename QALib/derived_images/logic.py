@@ -143,9 +143,11 @@ class DerivedImageQALogic(object):
         self.constructFilePaths()
         self.setCurrentSession()
         self.loadData()
-        if len(self.batchRows[self.count]) > 8:
+        reviewColumnsCount = 8
+        print self.batchRows[self.count]
+        if len(self.batchRows[self.count]) > reviewColumnsCount:
             # roboRater has done this already
-            self.currentReviewValues = self.batchRows[self.count][8:-4]
+            self.currentReviewValues = self.batchRows[self.count][reviewColumnsCount:]
         else:
             self.currentReviewValues = []
 
