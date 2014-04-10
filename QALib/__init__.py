@@ -7,7 +7,7 @@ __slicer_module__ = os.path.dirname(os.path.abspath(__path__[0]))
 try:
     import pg8000
 except ImportError:
-    pg8kDir = [os.path.join(__slicer_module__, 'Resources', 'Python', 'pg8000-1.08')]
+    pg8kDir = [os.path.join(__slicer_module__, 'Resources', 'Python', 'pg8000')]
     newSysPath = pg8kDir + sys.path
     sys.path = newSysPath
     import pg8000

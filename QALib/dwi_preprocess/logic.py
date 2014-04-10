@@ -164,7 +164,7 @@ class DWIPreprocessingQALogic(object):
         outputDir = os.path.join(baseDirectory, '')
         outputList = os.listdir(outputDir)
         for item in outputList:
-            if item.rfind('_QCed.nrrd') >= 0:
+            if item[-10:] == '_QCed.nrrd':
                 sessionFiles['DWI'] = os.path.join(outputDir, item)
                 break
         if not 'DWI' in sessionFiles.keys():

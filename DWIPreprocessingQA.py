@@ -207,6 +207,12 @@ class DWIPreprocessingQAWidget:
                         values = values + (False,)
         return values
 
+    def resetDWIwidget(self):
+        for textArea in self.textAreas:
+            objectName = textArea + 'LineEdit'
+            lineEdit = self.dwiArtifactWidget.findChild('QLineEdit', objectName)
+            lineEdit.clear()
+
     def getTextValues(self):
         values = ()
         for textArea in self.textAreas:
@@ -215,12 +221,12 @@ class DWIPreprocessingQAWidget:
             notes = lineEdit.text
             if notes is None:
                 notes = 'Null'
-            values = values + (lineEdit.text,)
+            values = values + (notes,)
         return values
 
     def resetWidget(self):
         self.resetRadioWidgets()
-        ### TODO: self.resetDWIwidget()
+        self.resetDWIwidget()
 
     def grabNotes(self):
         self.notes = None

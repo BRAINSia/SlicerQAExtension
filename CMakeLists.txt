@@ -30,7 +30,7 @@ set(MODULE_PYTHON_SCRIPTS
   )
 
 set(MODULE_PYTHON_RESOURCES
-  Python/pg8000/__init__.py
+  Python/pg8000/pg8000/__init__.py
   )
 
 #-----------------------------------------------------------------------------
@@ -85,7 +85,7 @@ set(MODULE_PYTHON_SCRIPTS
   )
 
 set(MODULE_PYTHON_RESOURCES
-  Python/pg8000/__init__.py
+  Python/pg8000/pg8000/__init__.py
   module_locator.py
   )
 

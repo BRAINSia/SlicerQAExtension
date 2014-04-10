@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from collections import deque
 import os
 import warnings
 
@@ -256,17 +257,25 @@ class postgresDatabase(object):
                              WHERE status = 'U' \
                              ORDER BY priority ASC")
         self.rows = self.cursor.fetchmany()
+        roboraterID = 9
         if self.rows is None:
             raise pg8000.errors.DataError("No rows with status == 'U' were found!")
         for rowcount in range(len(self.rows)):
             record_id = self.rows[rowcount][0]
-            roboraterID = 9
-
             # print self.rows[rowcount]
-            self.cursor.execute("SELECT * FROM image_reviews WHERE reviewer_id = {0} AND record_id = {1}".format(roboraterID, record_id))
+            self.cursor.execute("SELECT * \
+                                 FROM image_reviews \
+                                 WHERE reviewer_id = {0} \
+                                 AND record_id = {1}".format(roboraterID, record_id))
             review = self.cursor.fetchone()
             if review is not None:
-                self.rows[rowcount] = self.rows[rowcount] + review
+                if isinstance(self.rows, list):  # pg8000 v1.08
+                    self.rows[rowcount] = self.rows[rowcount] + review
+                elif isinstance(self.rows, deque):  # pg8000 v1.9+
+                    # print "The length of the rows: ", len(self.rows)
+                    temp = self.rows.popleft()
+                    self.rows.appendleft(temp + review)
+                    # raise TypeError
         return
 
     def lockBatch(self):
