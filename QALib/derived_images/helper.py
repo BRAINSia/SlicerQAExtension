@@ -4,120 +4,7 @@ import warnings
 
 from . import pg8000, sql
 
-class sqliteDatabase(object):
-    """ Connect to the SQLite database and prevent multiple user collisions
-        during evaluations
-
-    """
-    def __init__(self, login, arraySize):
-        import sqlite3
-        globals()['sql'] = sqlite3
-        self.rows = None
-        self.database = None
-        self.isolation_level = "EXCLUSIVE"
-        self.connection = None
-        self.cursor = None
-        self.reviewer_login = login
-        self.reviewer_id = None
-        self.arraySize = arraySize
-        self.createTestDatabase()
-        self.getReviewerID()
-        self.review_column_names = self.review_columns()
-
-    def createTestDatabase(self):
-        """ Create a dummy database file"""
-        import os
-        self.database = os.path.join(__file__, 'Testing', 'sqlTest.db')
-        if os.path.exists(self.database):
-            os.remove(self.database)
-        self.openDatabase()
-        # TODO: Upload test data to Midas for testing.
-        testDatabaseCommands = os.path.join(__file__, 'Testing', 'databaseSQL.txt')
-        fid = open(testDatabaseCommands, 'rb')
-        try:
-            commands = fid.read()
-            self.connection.executescript(commands)
-        finally:
-            self.closeDatabase()
-            fid.close()
-
-    def getReviewerID(self):
-        self.openDatabase()
-        self.cursor.execute("SELECT reviewer_id FROM reviewers \
-                             WHERE login=?", (self.reviewer_login,))
-        self.reviewer_id = self.cursor.fetchone()
-        self.closeDatabase()
-
-    def openDatabase(self):
-        self.connection = sql.connect(self.database, isolation_level=self.isolation_level)
-        self.connection.row_factory = sql.Row
-        self.cursor = self.connection.cursor()
-        self.cursor.arraysize = self.arraySize
-
-    def getBatch(self):
-        self.cursor.execute("SELECT * \
-                            FROM derived_images \
-                            WHERE status = 'U'")
-        self.rows = self.cursor.fetchmany()
-        if not self.rows:
-            raise warnings.warn("No rows were status == 'U' were found!")
-
-    def lockBatch(self):
-        # Lock batch members
-        ids = ()
-        idString = ""
-        for row in self.rows:
-            ids = ids + (str(row['record_id']),)
-        idString = ', '.join(ids)
-        sqlCommand = "UPDATE derived_images SET status='L' WHERE record_id IN ({0});".format(idString)
-        self.connection.executescript(sqlCommand)
-        self.connection.commit()
-
-    def lockAndReadRecords(self):
-        self.openDatabase()
-        try:
-            self.getBatch()
-            self.lockBatch()
-        finally:
-            self.closeDatabase()
-        return self.rows
-
-    def writeAndUnlockRecord(self, values):
-        self.openDatabase()
-        reviewerID = self.reviewer_id[0]
-        try:
-            valueString = ("?, " * (len(values) + 1))[:-2]
-            if len(values) == 17:
-                sqlCommand = "INSERT INTO image_reviews \
-                              ('record_id', 't2_average', 't1_average', \
-                               'labels_tissue', 'caudate_left', 'caudate_right', \
-                               'accumben_left', 'accumben_right', 'putamen_left', \
-                               'putamen_right', 'globus_left', 'globus_right', \
-                               'thalamus_left', 'thalamus_right', 'hippocampus_left', \
-                               'hippocampus_right', 'notes', 'reviewer_id'\
-                               ) VALUES (%s)" % valueString
-            elif len(values) == 16:
-                # No notes
-                print "No notes???"
-            print sqlCommand
-            self.cursor.execute(sqlCommand, values + (reviewerID,))
-            self.cursor.execute("UPDATE derived_images \
-                                 SET status='R' \
-                                 WHERE record_id=? AND status='L'", (values[0],))
-            self.connection.commit()
-        except:
-            print values + (reviewerID,)
-            print "Value length: %d" % len(values + (reviewerID,))
-            raise
-        finally:
-            self.closeDatabase()
-
-    def closeDatabase(self):
-        self.cursor.close()
-        self.cursor = None
-        self.connection.close()
-        self.connection = None
-
+SCHEMA='autoworkup_scm'
 
 class postgresDatabase(object):
     """ Connect to the Postgres database and prevent multiple user collisions
@@ -230,8 +117,8 @@ class postgresDatabase(object):
         DataError: Reviewer user0 is not registered in the database test!
         """
         self.openDatabase()
-        self.cursor.execute("SELECT reviewer_id FROM reviewers \
-                             WHERE login=?", (self.login,))
+        self.cursor.execute("SELECT reviewer_id FROM {schema}.reviewers \
+                             WHERE login=?".format(schema=SCHEMA), (self.login,))
         try:
             self.reviewer_id = self.cursor.fetchone()[0]
         except TypeError:
@@ -252,9 +139,9 @@ class postgresDatabase(object):
         True
         """
         self.cursor.execute("SELECT * \
-                             FROM derived_images \
-                             WHERE status = 'U' \
-                             ORDER BY priority ASC")
+                             FROM {schema}.derived_images \
+                             WHERE status='U' \
+                             ORDER BY priority ASC".format(schema=SCHEMA))
         self.rows = self.cursor.fetchmany()
         if self.rows is None:
             raise pg8000.errors.DataError("No rows with status == 'U' were found!")
@@ -263,7 +150,7 @@ class postgresDatabase(object):
             roboraterID = 9
 
             # print self.rows[rowcount]
-            self.cursor.execute("SELECT * FROM image_reviews WHERE reviewer_id = {0} AND record_id = {1}".format(roboraterID, record_id))
+            self.cursor.execute("SELECT * FROM {schema}.image_reviews WHERE reviewer_id=? AND record_id=?".format(schema=SCHEMA), (roboraterID, record_id))
             review = self.cursor.fetchone()
             if review is not None:
                 self.rows[rowcount] = self.rows[rowcount] + review
@@ -278,9 +165,9 @@ class postgresDatabase(object):
             record_id = row[0]
             ids = ids + (record_id,)
         idString = ("?, " * self.arraySize)[:-2]
-        sqlCommand = "UPDATE derived_images \
+        sqlCommand = "UPDATE {schema}.derived_images \
                       SET status='L' \
-                      WHERE record_id IN ({0})".format(idString)
+                      WHERE record_id IN ({ids})".format(schema=SCHEMA, ids=idString)
         self.cursor.execute(sqlCommand, ids)
         self.connection.commit()
 
@@ -307,14 +194,14 @@ class postgresDatabase(object):
         self.openDatabase()
         try:
             valueString = ("?, " * (len(values) + 1))[:-2]
-            sqlCommand = "INSERT INTO image_reviews \
+            sqlCommand = "INSERT INTO {schema}.image_reviews \
                             (record_id, t2_average, t1_average, \
                             labels_tissue, caudate_left, caudate_right, \
                             accumben_left, accumben_right, putamen_left, \
                             putamen_right, globus_left, globus_right, \
                             thalamus_left, thalamus_right, hippocampus_left, \
                             hippocampus_right, notes, reviewer_id\
-                            ) VALUES (%s)" % valueString
+                            ) VALUES".format(schema=SCHEMA) + " (%s)" % valueString
             self.cursor.execute(sqlCommand, values + (self.reviewer_id,))
             self.connection.commit()
         except:
@@ -323,7 +210,7 @@ class postgresDatabase(object):
             self.closeDatabase()
 
     def unlockRecord(self, status='U', pKey=None):
-        """ Unlock the record in derived_images by setting the status, dependent of the index value
+        """ Unlock the record in {schema}.derived_images by setting the status, dependent of the index value
 
         Arguments:
         - `pKey`: The value for the record_id column in the self.rows variable.
@@ -333,16 +220,17 @@ class postgresDatabase(object):
         self.openDatabase()
         try:
             if not pKey is None:
-                self.cursor.execute("UPDATE derived_images SET status=? \
-                                     WHERE record_id=? AND status='L'", (status, pKey))
+                self.cursor.execute("UPDATE {schema}.derived_images SET status=? \
+                                     WHERE record_id=? AND status='L'".format(schema=SCHEMA), (status, pKey))
                 self.connection.commit()
             else:
                 for row in self.rows:
-                    self.cursor.execute("SELECT status FROM derived_images WHERE record_id=?", (int(row[0]),))
+                    self.cursor.execute("SELECT status FROM {schema}.derived_images WHERE record_id=?".format(schema=SCHEMA),
+                                        (int(row[0]),))
                     currentStatus = self.cursor.fetchone()
                     if currentStatus[0] == 'L':
-                        self.cursor.execute("UPDATE derived_images SET status='U' \
-                                             WHERE record_id=? AND status='L'", (int(row[0]),))
+                        self.cursor.execute("UPDATE {schema}.derived_images SET status='U' \
+                                             WHERE record_id=? AND status='L'".format(schema=SCHEMA), (int(row[0]),))
                         self.connection.commit()
         except:
             raise
@@ -353,7 +241,7 @@ class postgresDatabase(object):
         self.openDatabase()
         try:
             self.cursor.execute("SELECT column_name FROM information_schema.columns \
-                                 WHERE table_name='image_reviews'")
+                                 WHERE table_name='{schema}.image_reviews'".format(schema=SCHEMA))
             columns = self.cursor.fetchall()
         except:
             raise

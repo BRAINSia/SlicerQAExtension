@@ -54,6 +54,7 @@ class postgresDatabase(object):
         self.rows = None
         self.connection = None
         self.cursor = None
+        self.schema = 'autoworkup_scm'
         # self.isolationLevel = sql.extensions.ISOLATION_LEVEL_SERIALIZABLE
         # Set defaults
         self.host = 'localhost'
@@ -104,7 +105,7 @@ class postgresDatabase(object):
         self.connection = None
 
     def getReviewerID(self):
-        """ Using the database login name, get the reviewer_id key from the reviewers table
+        """ Using the database login name, get the reviewer_id key from the {schema}.reviewers table
         ------------------------
         >>> db = postgresDatabase(host='psych-db.psychiatry.uiowa.edu', pguser='test', database='test', password='test', login='user1')
         >>> db.getReviewerID(); db.reviewer_id == 1;
@@ -116,8 +117,8 @@ class postgresDatabase(object):
         DataError: Reviewer user0 is not registered in the database test!
         """
         self.openDatabase()
-        self.cursor.execute("SELECT reviewer_id FROM reviewers \
-                             WHERE login=?", (self.login,))
+        self.cursor.execute("SELECT reviewer_id FROM {schema}.reviewers \
+                             WHERE login=?".format(schema=self.schema), (self.login,))
         try:
             self.reviewer_id = self.cursor.fetchone()[0]
         except TypeError:
@@ -139,9 +140,9 @@ class postgresDatabase(object):
         >>> print "This testing is not complete!"
         """
         self.cursor.execute("SELECT * \
-                            FROM dwi_images \
+                            FROM {schema}.dwi_images \
                             WHERE status = 'U' \
-                            ORDER BY priority")
+                            ORDER BY priority".format(schema=self.schema))
         self.rows = self.cursor.fetchmany()
         if not self.rows:
             raise pg8000.errors.DataError("No rows were status == 'U' were found!")
@@ -158,9 +159,9 @@ class postgresDatabase(object):
             record_id = row[0]
             ids = ids + (record_id,)
         idString = ("?, " * self.arraySize)[:-2]
-        sqlCommand = "UPDATE dwi_images \
+        sqlCommand = "UPDATE {schema}.dwi_images \
                       SET status='L' \
-                      WHERE record_id IN ({0})".format(idString)
+                      WHERE record_id IN ({ids})".format(schema=self.schema, ids=idString)
         self.cursor.execute(sqlCommand, ids)
         self.connection.commit()
 
@@ -186,7 +187,7 @@ class postgresDatabase(object):
         self.openDatabase()
         try:
             valueString = ("?, " * (len(values) + 1))[:-2]
-            sqlCommand = "INSERT INTO dwi_reviews \
+            sqlCommand = "INSERT INTO {schema}.dwi_reviews \
                             (record_id, \
                              dwi_image, \
                              susceptibility_frontal, \
@@ -209,7 +210,7 @@ class postgresDatabase(object):
                              misccomments, \
                              followupnotes, \
                              reviewer_id \
-                            ) VALUES (%s)" % valueString
+                            ) VALUES ({qmarks})".format(schema=self.schema, qmarks=valueString)
                             # Nota bene: reviewer_id MUST be last in string
             self.cursor.execute(sqlCommand, values + (self.reviewer_id,))
             self.connection.commit()
@@ -229,16 +230,16 @@ class postgresDatabase(object):
         self.openDatabase()
         try:
             if not pKey is None:
-                self.cursor.execute("UPDATE dwi_images SET status=? \
-                                     WHERE record_id=? AND status='L'", (status, pKey))
+                self.cursor.execute("UPDATE {schema}.dwi_images SET status=? \
+                                     WHERE record_id=? AND status='L'".format(schema=self.schema), (status, pKey))
                 self.connection.commit()
             else:
                 for row in self.rows:
-                    self.cursor.execute("SELECT status FROM dwi_images WHERE record_id=?", (int(row[0]),))
+                    self.cursor.execute("SELECT status FROM {schema}.dwi_images WHERE record_id=?".format(schema=self.schema), (int(row[0]),))
                     currentStatus = self.cursor.fetchone()
                     if currentStatus[0] == 'L':
-                        self.cursor.execute("UPDATE dwi_images SET status='U' \
-                                             WHERE record_id=? AND status='L'", (int(row[0]),))
+                        self.cursor.execute("UPDATE {schema}.dwi_images SET status='U' \
+                                             WHERE record_id=? AND status='L'".format(schema=self.schema), (int(row[0]),))
                         self.connection.commit()
         except:
             raise

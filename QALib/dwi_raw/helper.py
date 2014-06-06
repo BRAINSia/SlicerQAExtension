@@ -54,6 +54,7 @@ class postgresDatabase(object):
         self.rows = None
         self.connection = None
         self.cursor = None
+        self.schema = 'autoworkup_scm'
         # self.isolationLevel = sql.extensions.ISOLATION_LEVEL_SERIALIZABLE
         # Set defaults
         self.host = 'localhost'
@@ -116,8 +117,8 @@ class postgresDatabase(object):
         DataError: Reviewer user0 is not registered in the database test!
         """
         self.openDatabase()
-        self.cursor.execute("SELECT reviewer_id FROM reviewers \
-                             WHERE login=?", (self.login,))
+        self.cursor.execute("SELECT reviewer_id FROM {schema}.reviewers \
+                             WHERE login=?".format(schema=self.schema), (self.login,))
         try:
             self.reviewer_id = self.cursor.fetchone()[0]
         except TypeError:
@@ -139,9 +140,9 @@ class postgresDatabase(object):
         >>> print "This testing is not complete!"
         """
         self.cursor.execute("SELECT * \
-                            FROM dwi_raw \
+                            FROM {schema}.dwi_raw \
                             WHERE status = 'U' \
-                            ORDER BY priority")
+                            ORDER BY priority".format(schema=self.schema))
         self.rows = self.cursor.fetchmany()
         if not self.rows:
             raise pg8000.errors.DataError("No rows were status == 'U' were found!")
@@ -158,9 +159,9 @@ class postgresDatabase(object):
             record_id = row[0]
             ids = ids + (record_id,)
         idString = ("?, " * self.arraySize)[:-2]
-        sqlCommand = "UPDATE dwi_raw \
+        sqlCommand = "UPDATE {schema}.dwi_raw \
                       SET status='L' \
-                      WHERE record_id IN ({0})".format(idString)
+                      WHERE record_id IN ({ids})".format(schema=self.schema, ids=idString)
         self.cursor.execute(sqlCommand, ids)
         self.connection.commit()
 
@@ -186,11 +187,11 @@ class postgresDatabase(object):
         self.openDatabase()
         try:
             valueString = ("?, " * (len(values) + 1))[:-2]
-            sqlCommand = "INSERT INTO dwi_raw_reviews \
+            sqlCommand = "INSERT INTO {schema}.dwi_raw_reviews \
                             (record_id, \
                             question_one, question_two, question_three, question_four, comments, \
                             reviewer_id\
-                            ) VALUES (%s)" % valueString
+                            ) VALUES ({qmarks})".format(schema=self.schema, qmarks=valueString)
             self.cursor.execute(sqlCommand, values + (self.reviewer_id,))
             self.connection.commit()
         except:
@@ -211,16 +212,16 @@ class postgresDatabase(object):
         self.openDatabase()
         try:
             if not pKey is None:
-                self.cursor.execute("UPDATE dwi_raw SET status=? \
-                                     WHERE record_id=? AND status='L'", (status, pKey))
+                self.cursor.execute("UPDATE {schema}.dwi_raw SET status=? \
+                                     WHERE record_id=? AND status='L'".format(schema=self.schema), (status, pKey))
                 self.connection.commit()
             else:
                 for row in self.rows:
-                    self.cursor.execute("SELECT status FROM dwi_raw WHERE record_id=?", (int(row[0]),))
+                    self.cursor.execute("SELECT status FROM {schema}.dwi_raw WHERE record_id=?".format(schema=self.schema), (int(row[0]),))
                     currentStatus = self.cursor.fetchone()
                     if currentStatus[0] == 'L':
-                        self.cursor.execute("UPDATE dwi_raw SET status='U' \
-                                             WHERE record_id=? AND status='L'", (int(row[0]),))
+                        self.cursor.execute("UPDATE {schema}.dwi_raw SET status='U' \
+                                             WHERE record_id=? AND status='L'".format(schema=self.schema), (int(row[0]),))
                         self.connection.commit()
         except:
             raise
