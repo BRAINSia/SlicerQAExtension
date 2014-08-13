@@ -6,6 +6,7 @@ from . import pg8000, sql
 
 
 class postgresDatabase(object):
+
     """ Connect to the Postgres database and prevent multiple user collisions
         during simultaneous evaluations
     """
@@ -54,19 +55,19 @@ class postgresDatabase(object):
         self.rows = None
         self.connection = None
         self.cursor = None
-        self.schema = 'autoworkup_scm'
         # self.isolationLevel = sql.extensions.ISOLATION_LEVEL_SERIALIZABLE
         # Set defaults
         self.host = 'localhost'
         self.port = 5432
         self.pguser = 'postgres'
         self.database = None
+        self.schema = None
         self.password = 'postgres'
         self.login = os.environ['USER']
         self.arraySize = 1
         # Set keyword inputs
         if not kwds is None:
-            argkeys = ['host', 'port', 'pguser', 'database', 'password', 'login', 'arraySize']
+            argkeys = ['host', 'port', 'pguser', 'database', 'schema', 'password', 'login', 'arraySize']
             keys = sorted(kwds.keys())
             for key in keys:
                 argkeys.remove(key)
@@ -76,7 +77,8 @@ class postgresDatabase(object):
                 for key, arg in zip(argkeys, args):
                     setattr(self, key, arg)
         # Set the database default
-        if self.database is None: self.database = self.pguser
+        if self.database is None:
+            self.database = self.pguser
 
     def openDatabase(self):
         """ Open the database and create cursor and connection
@@ -88,11 +90,15 @@ class postgresDatabase(object):
         >>> isinstance(db.cursor, pg.DBAPI.CursorWrapper)
         True
         """
-        self.connection = sql.connect(host=self.host,
-                                      port=self.port,
-                                      database=self.database,
-                                      user=self.pguser,
-                                      password=self.password)
+        try:
+            self.connection = sql.connect(host=self.host,
+                                          port=self.port,
+                                          database=self.database,
+                                          user=self.pguser,
+                                          password=self.password)
+        except pg8000.errors.ProgrammingError, err:
+            print "Check your configuration file for the correct database information"
+            raise err
         self.cursor = self.connection.cursor()
         self.cursor.arraysize = self.arraySize
 
@@ -122,7 +128,8 @@ class postgresDatabase(object):
         try:
             self.reviewer_id = self.cursor.fetchone()[0]
         except TypeError:
-            raise pg8000.errors.DataError("Reviewer %s is not registered in the database %s!" % (self.login, self.database))
+            raise pg8000.errors.DataError("Reviewer %s is not registered in the database %s!" %
+                                          (self.login, self.database))
         finally:
             self.closeDatabase()
 
@@ -235,7 +242,8 @@ class postgresDatabase(object):
                 self.connection.commit()
             else:
                 for row in self.rows:
-                    self.cursor.execute("SELECT status FROM {schema}.dwi_images WHERE record_id=?".format(schema=self.schema), (int(row[0]),))
+                    self.cursor.execute(
+                        "SELECT status FROM {schema}.dwi_images WHERE record_id=?".format(schema=self.schema), (int(row[0]),))
                     currentStatus = self.cursor.fetchone()
                     if currentStatus[0] == 'L':
                         self.cursor.execute("UPDATE {schema}.dwi_images SET status='U' \

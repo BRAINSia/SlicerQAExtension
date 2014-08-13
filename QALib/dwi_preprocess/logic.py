@@ -20,21 +20,23 @@ except ImportError:
 
 
 class DWIPreprocessingQALogic(object):
+
     """ Logic class to be used 'under the hood' of the evaluator """
+
     def __init__(self, widget, test=False):
         self.widget = widget
         self.images = self.widget.images
-        self.qaValueMap = {'good':'1', 'bad':'0', 'follow up':'-1'}
+        self.qaValueMap = {'good': '1', 'bad': '0', 'follow up': '-1'}
         self.colorTable = "IPL-BrainAtlas-ColorFile.txt"
         self.colorTableNode = None
         self.user_id = None
         self.database = None
         self.batchSize = 1
         self.batchRows = None
-        self.count = 0 # Starting value
+        self.count = 0  # Starting value
         self.maxCount = 0
         self.currentSession = None
-        self.currentValues = (None,)*len(self.images)
+        self.currentValues = (None,) * len(self.images)
         self.sessionFiles = {}
         self.testing = test
         self.setup()
@@ -67,8 +69,10 @@ class DWIPreprocessingQALogic(object):
         port = config.getint('Postgres', 'Port')
         database = config.get('Postgres', 'Database')
         db_user = config.get('Postgres', 'User')
-        password = config.get('Postgres', 'Password') ### TODO: Use secure password handling (see RunSynchronization.py in phdxnat project)
-        self.database = postgresDatabase(host, port, db_user, database, password,
+        # TODO: Use secure password handling (see RunSynchronization.py in phdxnat project)
+        password = config.get('Postgres', 'Password')
+        schema = config.get('Postgres', 'Schema')
+        self.database = postgresDatabase(host, port, db_user, database, schema, password,
                                          self.user_id, self.batchSize)
 
     def createColorTable(self):
@@ -107,7 +111,7 @@ class DWIPreprocessingQALogic(object):
             for sliceNode in sliceNodes.values():
                 sliceNode.UseLabelOutlineOn()
         else:
-             self.loadBackgroundNodeToMRMLScene(labelNode)
+            self.loadBackgroundNodeToMRMLScene(labelNode)
 
     def constructLabelNodeName(self, buttonName):
         """ Create the names for the volume and label nodes """
@@ -164,7 +168,7 @@ class DWIPreprocessingQALogic(object):
         outputDir = os.path.join(baseDirectory, '')
         outputList = os.listdir(outputDir)
         for item in outputList:
-            if item[-10:] == '_QCed.nrrd':
+            if item[-10:] == '_QCed.nrrd':  # This suffix comes from DTIPrep script...
                 sessionFiles['DWI'] = os.path.join(outputDir, item)
                 break
         if not 'DWI' in sessionFiles.keys():
@@ -183,8 +187,8 @@ class DWIPreprocessingQALogic(object):
     def loadData(self):
         """ Load some default data for development and set up a viewing scenario for it.
         """
-        dataDialog = qt.QPushButton();
-        dataDialog.setText('Loading file for session %s...' % self.currentSession);
+        dataDialog = qt.QPushButton()
+        dataDialog.setText('Loading file for session %s...' % self.currentSession)
         dataDialog.show()
         volumeLogic = slicer.modules.volumes.logic()
         dwiNodeName = '%s_dwi' % self.currentSession
