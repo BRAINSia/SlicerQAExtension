@@ -15,6 +15,9 @@ except ImportError:
     print "External modules not found!"
 #     raise ImportError
 
+if not 'TMPDIR' in os.environ.keys():
+    os.environ['TMPDIR'] = '/tmp'
+
 
 class DerivedImageQA:
 
