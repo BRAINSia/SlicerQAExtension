@@ -141,15 +141,14 @@ class postgresDatabase(object):
         """
         self.cursor.execute("SELECT * \
                              FROM {schema}.derived_images \
-                             WHERE status='U' \
+                             WHERE status IN ('U', 'P') \
                              ORDER BY priority ASC".format(schema=SCHEMA))
         self.rows = self.cursor.fetchmany()
         if self.rows is None:
-            raise pg8000.errors.DataError("No rows with status == 'U' were found!")
+            raise pg8000.errors.DataError("No rows with status 'U' or 'P' were found!")
         for rowcount in range(len(self.rows)):
             record_id = self.rows[rowcount][0]
             roboraterID = 9
-
             # print self.rows[rowcount]
             self.cursor.execute("SELECT * FROM {schema}.image_reviews WHERE reviewer_id=? AND record_id=?".format(schema=SCHEMA), (roboraterID, record_id))
             review = self.cursor.fetchone()
