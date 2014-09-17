@@ -4,6 +4,8 @@ import sys
 __slicer_module__ = os.path.dirname(os.path.abspath(__path__[0]))
 # print "Path to module: %s" % __slicer_module__
 
+import _ssl  #JC hack for pg8000v1.08
+
 try:
     import pg8000
 except ImportError:
