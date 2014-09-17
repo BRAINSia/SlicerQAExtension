@@ -76,6 +76,7 @@ class postgresDatabase(object):
         if self.database is None:
             self.database = self.pguser
         self.review_column_names = self.review_columns()
+        self.previous_status = 'E'
 
 
     def openDatabase(self):
@@ -138,31 +139,39 @@ class postgresDatabase(object):
         >>> self.row is None
         True
         """
+        # HACK: priority = 1
         self.cursor.execute("SELECT * \
                              FROM {schema}.derived_images \
-                             WHERE status IN ('U', 'P') \
-                             ORDER BY priority ASC".format(schema=SCHEMA))
-        self.rows = self.cursor.fetchmany()
-        if self.rows is None:
-            raise pg8000.errors.DataError("No rows with status 'U' or 'P' were found!")
-        self.checkForRobotRating()
+                             WHERE status IN ('U', 'A') AND priority=1 \
+                             ORDER BY priority ASC, status ASC".format(schema=SCHEMA))
+        # END HACK
+        self.row = self.cursor.fetchone()
+        if self.row is None:
+            raise pg8000.errors.DataError("No rows with status 'U' or 'A' were found!")
+        self.previous_state = self.row[-2]
+        if self.previous_state != 'A':
+            print "Not roboRated! ", self.row
+        else:
+            self.checkForRobotRating()
 
     def checkForRobotRating(self):
         roboraterID = 9  #TODO: HARDCODED, replace with query: SELECT reviewer_id FROM reviewers WHERE "login" = 'roborater'
         columns = ', '.join(self.review_column_names)
-        for rowcount in range(len(self.rows)):
-            record_id = self.rows[rowcount][0]
-            # print self.rows[rowcount]
-            self.cursor.execute("SELECT {columns} FROM {schema}.image_reviews WHERE reviewer_id=? AND record_id=? ORDER BY review_time".format(schema=SCHEMA, columns=columns), (roboraterID, record_id))
-            review = self.cursor.fetchone()
-            if review is not None:
-                if isinstance(self.rows, list):  # pg8000 v1.08
-                    self.rows[rowcount] = self.rows[rowcount] + review
-                elif isinstance(self.rows, deque):  # pg8000 v1.9+
-                    # print "The length of the rows: ", len(self.rows)
-                    temp = self.rows.popleft()
-                    self.rows.appendleft(temp + review)
-                    # raise TypeError
+        # print self.row
+        record_id = self.row[0]
+        self.cursor.execute("SELECT {columns} FROM {schema}.image_reviews WHERE reviewer_id=? AND record_id=? ORDER BY review_time".format(schema=SCHEMA, columns=columns), (roboraterID, record_id))
+        review = self.cursor.fetchone()
+        assert review is not None and review is not [], "Cannot find automated QA for record!"
+        print type(review)
+        if isinstance(self.row, tuple):  # pg8000 v1.08
+            self.row = self.row + review
+        elif isinstance(self.row, deque):  # pg8000 v1.9+
+            # print "The length of the row: ", len(self.row)
+            temp = self.row.popleft()
+            self.row.appendleft(temp + review)
+        else:
+            raise TypeError
+        print self.row
         return
 
     def lockBatch(self):
@@ -213,7 +222,7 @@ class postgresDatabase(object):
         finally:
             self.closeDatabase()
 
-    def unlockRecord(self, status='U', pKey=None):
+    def unlockRecord(self, status='U', pKey='-1'):
         """ Unlock the record in {schema}.derived_images by setting the status, dependent of the index value
 
         Arguments:
@@ -222,20 +231,23 @@ class postgresDatabase(object):
                   If pKey is None, then set the remaining, unreviewed rows to 'U'
         """
         self.openDatabase()
+        pKey = int(pKey)
         try:
-            if not pKey is None:
+            if pKey > 1:
                 self.cursor.execute("UPDATE {schema}.derived_images SET status=? \
                                      WHERE record_id=? AND status='L'".format(schema=SCHEMA), (status, pKey))
-                self.connection.commit()
             else:
-                for row in self.rows:
-                    self.cursor.execute("SELECT status FROM {schema}.derived_images WHERE record_id=?".format(schema=SCHEMA),
-                                        (int(row[0]),))
-                    currentStatus = self.cursor.fetchone()
-                    if currentStatus[0] == 'L':
-                        self.cursor.execute("UPDATE {schema}.derived_images SET status='U' \
-                                             WHERE record_id=? AND status='L'".format(schema=SCHEMA), (int(row[0]),))
-                        self.connection.commit()
+                self.cursor.execute("SELECT status FROM {schema}.derived_images WHERE record_id=?".format(schema=SCHEMA),
+                                    (int(self.row[0]),))
+                currentStatus = self.cursor.fetchone()[0]
+                if currentStatus == 'L':
+                    self.cursor.execute("UPDATE {schema}.derived_images SET status=? \
+                                         WHERE record_id=? AND status='L'".format(schema=SCHEMA),
+                                         (self.previous_state, int(self.row[0]),))
+                else:
+                    self.unlockRecord(status='E', pKey=int(self.row[0]))
+                    raise NotImplementedError
+            self.connection.commit()
         except:
             raise
         finally:
