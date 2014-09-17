@@ -125,7 +125,13 @@ class DerivedImageQALogic(object):
                 self.database.writeAndUnlockRecord(values)
             else:
                 self.database.writeReview(values)
-                self.database.unlockRecord('R', recordID)
+                print self.currentReviewValues[3:15]
+                if self.currentReviewValues == []:
+                    self.database.unlockRecord('R', recordID)
+                elif self.currentReviewValues[3:15] != ['1',] * 12:
+                    self.database.unlockRecord()
+                else:
+                    self.database.unlockRecord('P', recordID)
         except:
             # TODO: Prompt user with popup
             self.logging.error("Error writing to database for record %d", recordID)
@@ -174,7 +180,7 @@ class DerivedImageQALogic(object):
         competition.  Load the correct labels from all_Labels_seg.nii.gz and have the corresponding labels display for each label
         choice in the module.
         """
-        print "_all_Labels_seg()"
+        print "_all_Labels_seg(): %s" % nodeName
         import numpy
         allLabelName = 'allLabels_seg_{0}'.format(session)
         labelNode = slicer.util.getNode(allLabelName)
