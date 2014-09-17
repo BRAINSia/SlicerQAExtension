@@ -145,11 +145,15 @@ class postgresDatabase(object):
         self.rows = self.cursor.fetchmany()
         if self.rows is None:
             raise pg8000.errors.DataError("No rows with status 'U' or 'P' were found!")
+        self.checkForRobotRating()
+
+    def checkForRobotRating(self):
+        roboraterID = 9  #TODO: HARDCODED, replace with query: SELECT reviewer_id FROM reviewers WHERE "login" = 'roborater'
+        columns = ', '.join(self.review_column_names)
         for rowcount in range(len(self.rows)):
             record_id = self.rows[rowcount][0]
-            roboraterID = 9
             # print self.rows[rowcount]
-            self.cursor.execute("SELECT * FROM {schema}.image_reviews WHERE reviewer_id=? AND record_id=?".format(schema=SCHEMA), (roboraterID, record_id))
+            self.cursor.execute("SELECT {columns} FROM {schema}.image_reviews WHERE reviewer_id=? AND record_id=? ORDER BY review_time".format(schema=SCHEMA, columns=columns), (roboraterID, record_id))
             review = self.cursor.fetchone()
             if review is not None:
                 if isinstance(self.rows, list):  # pg8000 v1.08
@@ -238,11 +242,14 @@ class postgresDatabase(object):
             self.closeDatabase()
 
     def review_columns(self):
+        tablename = 'image_reviews'
         self.openDatabase()
         try:
             self.cursor.execute("SELECT column_name FROM information_schema.columns \
-                                 WHERE table_name='{schema}.image_reviews'".format(schema=SCHEMA))
-            columns = self.cursor.fetchall()
+                                 WHERE table_name=? ORDER BY ordinal_position", (tablename, ))
+            columns = tuple([x[0] for x in self.cursor.fetchall()])
+            assert columns[0] == 'review_id', "First column is not 'review_id'"
+            assert columns[19] == 'notes', "Last column is not 'notes'"
         except:
             raise
         self.closeDatabase()
