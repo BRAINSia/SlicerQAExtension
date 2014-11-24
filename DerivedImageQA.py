@@ -18,6 +18,9 @@ except ImportError:
 if not 'TMPDIR' in os.environ.keys():
     os.environ['TMPDIR'] = '/tmp'
 
+assert 'QA_MODULE_CONFIG' in os.environ.keys(), "Must set QA_MODULE_CONFIG to module configuration file path"
+assert 'QA_DB_CONFIG' in os.environ.keys(), "Must set QA_DB_CONFIG to database configuration file path"
+
 
 class DerivedImageQA:
 

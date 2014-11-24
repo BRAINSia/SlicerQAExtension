@@ -45,13 +45,14 @@ class DerivedImageQALogic(object):
         print "setup()"
         config = cParser.SafeConfigParser()
         self.config = cParser.SafeConfigParser()
-        logicConfig = os.path.join(__slicer_module__, 'derived_images-all_Labels_seg.cfg')
+        logicConfig = os.path.abspath(os.environ['QA_MODULE_CONFIG'])
+        self.logging.info("Setting module configuration to %s", logicConfig)
         if self.testing:
             databaseConfig = os.path.join(__slicer_module__, 'testdatabase.cfg')
             self.user_id = 'user1'
             self.logging.info("TESTING: Setting database user to %s", self.user_id)
         else:
-            databaseConfig = os.path.join(__slicer_module__, 'autoworkup.cfg')
+            databaseConfig = os.path.abspath(os.environ['QA_DB_CONFIG'])
             self.logging.info("Setting database configuration to %s", databaseConfig)
             self.user_id = os.environ['USER']
             self.logging.info("logic.py: Setting database user to %s", self.user_id)

@@ -186,6 +186,11 @@ class postgresDatabase(object):
         try:
             self.getBatch()
             self.lockBatch()
+        except AssertionError:
+            if len(self.rows) < 1:
+                raise  # TODO (needs testing): return None
+            else:
+                raise
         finally:
             self.closeDatabase()
         return self.rows
